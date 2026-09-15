@@ -53,17 +53,26 @@ many years. Reimplementing it would have been both wasteful and worse. Credit wh
 `docs/reference/cstimer-timer-stackmat.js` is also from csTimer and is present **for reference
 only** — it is never loaded. The run state machine is reimplemented from it.
 
-### Brand assets are not covered by the GPL
+### Artwork is not covered by the GPL
 
-The following are property of **Pentraze** and are **not** licensed under the GPL-3.0. All rights
-reserved:
+The GPL-3.0 applies to the **code**. It does not license the artwork, and some of the artwork is
+not ours to license in the first place.
 
-- `assets/rootkitty.svg`, `assets/rootkitty-costume.webp` — the RootKitty mascot
+**Pentraze property, all rights reserved:**
+
+- `assets/rootkitty.svg`, `assets/rootkitty-face.svg`, `assets/rootkitty-costume.webp` — the
+  RootKitty mascot
 - `assets/logo-ctf.svg` — the CTF Interuniversitario wordmark
-- `vendor/hero-maze3d.js` — the three.js maze background, from the CTF Interuniversitario site
+- `vendor/hero-maze3d.js` — the maze background, from the CTF Interuniversitario site
 
-If you fork this to run your own event, **replace these with your own branding.** The software is
-yours to use under the GPL; the mascot is not.
+**Third-party trademarks, used to identify the participating institutions:**
+
+- `assets/universidades/*.png` — the logos of INTEC, ITLA, Loyola, PUCMM, UAPA, UCE, UCSD, UNAPEC,
+  UNIBE, UNICARIBE, UNICDA, UNPHU and UTESA. Each belongs to the university it names. They appear
+  here solely to identify the teams competing in this event, and no endorsement is implied.
+
+If you fork this to run your own event, **replace all of the above with your own branding.** The
+software is yours to use under the GPL; the mascot and the university marks are not.
 
 `vendor/three.module.js` is [three.js](https://github.com/mrdoob/three.js), MIT licensed.
 

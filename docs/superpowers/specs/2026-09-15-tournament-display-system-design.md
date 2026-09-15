@@ -301,7 +301,7 @@ weight), `RootKitty_Disfraz.jpg` (print resolution).
 |---|---|
 | **Secure context** | `getUserMedia` requires HTTPS or `http://localhost`. Opening `index.html` as `file://` fails silently on the mic |
 | **Extended display** | Two windows work best with the projector set to *extended*. Degrades gracefully to mirrored — the audience window holds no state, so nothing breaks |
-| **Fonts** | The CTF site's `--font-display` is `roc-grotesk-variable`, an Adobe Fonts family needing a kit and a network. **Not used here.** `logo-ctf.svg` carries its letterforms as paths, so branding needs no font; data and timer use a self-hosted mono for tabular numerals |
+| **Fonts** | `roc-grotesk-variable` (Adobe Fonts, kit `use.typekit.net/frw4sme.css`) **is used** — the venue has internet, and the owner accepted the dependency. Verified loading on `localhost`. Two consequences: the kit is domain-restricted, so the production host must be authorised in the Typekit account before the day; and the clock must be checked for tabular figures — if `roc-grotesk` lacks them, the timer falls back to a self-hosted mono, since digits that change width while counting are not acceptable. `logo-ctf.svg` carries its letterforms as paths and needs no font either way |
 | **Licence** | csTimer is GPL-3.0. Vendoring `stackmat.js` makes this a derivative work, inheriting GPL-3.0. Accepted by the project owner |
 | **`three.module.js` weight** | 1.27 MB of the 1.5 MB vendor total. Read from disk locally, not downloaded |
 
