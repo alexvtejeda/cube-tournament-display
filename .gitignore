@@ -1,0 +1,14 @@
+# Design-session scratch — mockups live here, kept local by choice
+.superpowers/
+
+# Dependencies
+node_modules/
+
+# Local event data / exports
+*.local.json
+exports/
+
+# OS / editor
+.DS_Store
+.idea/
+*.swp
