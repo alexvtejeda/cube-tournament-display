@@ -1,7 +1,7 @@
 # Tournament Display — UI Design
 
 **Date:** 2026-09-16
-**Status:** In progress — written screen by screen. **ATTRACT** and **STANDBY** are approved; the other eight screens are not yet designed
+**Status:** In progress — written screen by screen. **ATTRACT**, **STANDBY** and **ARMED** are approved; the other seven screens are not yet designed
 **Scope:** Audience-window screens: layout, copy, visual values, and the data each screen needs from the core
 **Companion spec:** [`2026-09-15-tournament-display-system-design.md`](2026-09-15-tournament-display-system-design.md) (architecture, run loop, scoring, persistence). This is the `tournament-display-ui-design` spec its §13 defers to.
 
@@ -23,7 +23,8 @@ radius introduced during STANDBY was converted to `cqw` for this reason (§2.2).
 |---|---|---|
 | 1 ATTRACT | ✅ Approved | `attract-DECIDED.html` |
 | 2 STANDBY | ✅ Approved | **`standby-09-final.html`** (v9) |
-| 3–10 | Not yet designed | — |
+| 3 ARMED | ✅ Approved | **`armed-04-final.html`** |
+| 4–10 | Not yet designed | — |
 
 ---
 
@@ -41,7 +42,7 @@ plus exactly one new value (locked decision 10).
 |---|---|---|
 | Ground | `--bg-deep #02010c` | site token |
 | Dividers, plate border | `--violet-deep #231f66` | site token |
-| Labels, secondary text, rank numbers | `--violet #aba6f7` | site token |
+| Labels, secondary text, rank numbers, ARMED's waiting countdown | `--violet #aba6f7` | site token |
 | Leader row | `--gold-text #ffea95` | site token |
 | Mascot glow | `--red #EE2737` at 30% | site token |
 | Plate fill | `#f7f7f7` | site literal (`--grad-lavender`, `sections.css`) |
@@ -51,11 +52,15 @@ plus exactly one new value (locked decision 10).
 | **Mat go light only** | `--go #2ee6a0` | **the one new value** |
 
 - **`--go` is reserved for the mat's green light.** No idle or status element may use it. The
-  STANDBY draft used it for a "CRONÓMETRO LISTO" label; that label was removed.
+  STANDBY draft used it for a "CRONÓMETRO LISTO" label; that label was removed. ARMED is the only
+  screen so far that uses it, and only while the light is green (§5.2).
+- **`--gold #d4aa06` and `--red #EE2737` as text colours were offered and declined** for ARMED's
+  +2 and DNF (§5.2), which are words only. Neither has a text role yet; RUNNING's cutoff decides
+  its own colours.
 - The only colours outside this palette are the cube preview's sticker colours, which come from
   csTimer (§4.5).
-- Contrast on `--bg-deep`: `--violet` 9.41:1 · `#e8e6ff` 16.99:1 · `--gold-text` 17.24:1. `--violet-deep`
-  is **1.44:1** and must never carry text.
+- Contrast on `--bg-deep`: `--violet` 9.41:1 · `#e8e6ff` 16.99:1 · `--gold-text` 17.24:1 · `--go`
+  12.79:1. `--violet-deep` is **1.44:1** and must never carry text.
 
 ### 2.2 Tokens
 
@@ -65,28 +70,35 @@ plus exactly one new value (locked decision 10).
 --fs-body:   1.38cqw;  /* header, standings rows, names, sub-lines */
 --fs-lead:   2.2cqw;   /* ATTRACT tagline, scramble */
 --fs-hero:   4.4cqw;   /* big figures: attempt number, best time (2 × lead) */
+--fs-clock:  17.6cqw;  /* the clock and the inspection countdown (4 × hero) */
 ```
 
 - **Radius.** It was set as `1rem` during design, then converted: `1rem` is a fixed 16px, which is
   1.26cqw at the mockup's width but 0.83cqw at 1920px, so the projector would have shown noticeably
   sharper corners than the approved mockup. `1.26cqw` scales with the screen. One radius, used
   everywhere a radius appears.
-- **Type.** Four sizes. `1.38` and `2.2` come from ATTRACT's own scale (~1.6× per step), and
-  `4.4` is 2 × `2.2`. The STANDBY draft's 1.25 / 1.45 / 1.5 all collapsed into `--fs-body`.
+- **Type.** Five sizes. `1.38` and `2.2` come from ATTRACT's own scale (~1.6× per step), `4.4` is
+  2 × `2.2`, and `17.6` is 4 × `4.4`, the largest size the body holds (§5.3). The STANDBY draft's
+  1.25 / 1.45 / 1.5 all collapsed into `--fs-body`.
 - **Weights:** 500 for body text and the scramble · 700 for rank numbers and the ATTRACT tagline ·
-  800 for big figures, the leader row and the featured standings row.
-- **Letter-spacing:** `.24em` labels · `.14em` uppercase body text · `.28em` / `.2em` ATTRACT
-  tagline / footer · `-.01em` big figures.
+  800 for big figures, the clock, the leader row and the featured standings row. Spaced uppercase
+  labels and ARMED's status line use the regular weight.
+- **Letter-spacing:** `.24em` labels and ARMED's status line · `.14em` uppercase body text ·
+  `.28em` / `.2em` ATTRACT tagline / footer · `-.01em` big figures · `-.02em` the clock.
 - **Font:** `roc-grotesk-variable` from Adobe Fonts kit `use.typekit.net/frw4sme.css`, with the
-  fallback stack `"roc-grotesk", system-ui, sans-serif` (locked decision 9). **Open risk:** every
-  time uses `font-variant-numeric: tabular-nums`, and roc-grotesk's support for tabular figures is
-  still unverified. That check belongs to RUNNING (roadmap risk table).
+  fallback stack `"roc-grotesk", system-ui, sans-serif` (locked decision 9).
+- **Tabular figures: verified on 2026-09-16, risk closed.** With the kit loaded in Chrome, all ten
+  digits have the same advance width at weight 500 (120.81px at 200px) and at weight 800
+  (127.02px), **with and without** `tabular-nums`. roc-grotesk's default figures are already
+  tabular, so a running clock cannot jitter and no mono fallback is needed. Every time still sets
+  `font-variant-numeric: tabular-nums`, which costs nothing and covers the fallback stack.
 - **Motion:** no project-wide motion signature yet. It will be decided on a screen that needs one,
   most likely RUNNING or PENDING. Screens so far use only the maze and ATTRACT's logo pulse.
+  ARMED adds none: its changes are instant, because the green must match the physical light.
 
 ### 2.3 University plate
 
-One component, used by ATTRACT and STANDBY.
+One component, used by ATTRACT, STANDBY and ARMED.
 
 ```css
 .plate { display:flex; align-items:center; justify-content:center;
@@ -97,8 +109,8 @@ One component, used by ATTRACT and STANDBY.
 - Logos are `assets/universidades/<id>.png`, all **611 × 229** (2.67:1), and every one already
   contains its university's name. **Never put a plate next to a text acronym;** it would say the
   same thing twice.
-- Padding scales with the plate: `.75cqw 1.1cqw` on ATTRACT (12.7cqw wide) and `1.3cqw 1.9cqw` on
-  STANDBY (22cqw wide, ×1.73).
+- Padding scales with the plate: `.75cqw 1.1cqw` on ATTRACT (12.7cqw wide) and ARMED (13cqw wide),
+  and `1.3cqw 1.9cqw` on STANDBY (22cqw wide, ×1.73).
 
 ### 2.4 Mascot asset
 
@@ -114,8 +126,18 @@ edge, offset by `0.136 × 61.83/68.14 = 0.1234 × width`.
 ### 2.5 Maze
 
 `vendor/hero-maze3d.js` renders into a full-bleed canvas at the bottom of the stack. It runs live on
-ATTRACT and STANDBY, and is frozen only during RUNNING (locked decision 8). Only one maze can run per
-page (it looks up `#hero-canvas` by id) until the `createMaze({canvas})` refactor lands.
+ATTRACT, STANDBY and ARMED, and is frozen only during RUNNING (locked decision 8). On ARMED that was
+a choice: it keeps moving through inspection and freezes the moment the solve starts. Only one maze
+can run per page (it looks up `#hero-canvas` by id) until the `createMaze({canvas})` refactor lands.
+
+### 2.6 Wording
+
+Spanish throughout.
+
+- **DNF** is the audience word for a single attempt with no valid time (ARMED §5.2, and PENDING and
+  RESULTS when they are designed).
+- **`—` with SIN TIEMPO VÁLIDO** is for a university with no valid time at all (§4.2, locked
+  decision 4).
 
 ---
 
@@ -203,7 +225,7 @@ Transitions (system design §5):
 - `N` shows **Mezcla**, attempt 1, with a fresh scramble.
 - Accepting attempt 1 or 2 shows **Mezcla** for the next attempt with a new scramble (the existing
   auto-arm).
-- Resetting the mat to 0.00 leaves for ARMED (screen 3).
+- Resetting the mat to 0.00 leaves for ARMED (§5).
 
 At event start the operator's first `N` goes straight from ATTRACT to Mezcla, so ATTRACT needs no
 key of its own.
@@ -396,9 +418,221 @@ These came up while designing STANDBY. Screen 10 is not designed here.
 
 ---
 
-## 5. Open across screens
+## 5. Screen 3 — ARMED
 
-- **Tabular figures** in roc-grotesk: verify on RUNNING (§2.2).
+**Purpose:** the mat reads 0.00 and the competitor is at the table. ARMED covers the 15-second
+inspection, the hands going down and the green light, and ends when the solve starts.
+**Mockup:** **`armed-04-final.html`**. It shows eight moments with every decision applied. The
+history runs through `armed-01-frame.html` (layout), `armed-02-golight.html` (green light) and
+`armed-03-overtime.html` (past 15 s). It loads the same mockup-only files as STANDBY (§4).
+
+### 5.1 Inspection (new rule)
+
+Competitors get competition-style **15-second inspection, shown on the projector**. The system
+design did not have inspection; this adds it (roadmap locked decision 11).
+
+- The operator presses **`Space`** on lifting the cover, and the countdown starts.
+- A solve that starts after 15 s and up to 17 s suggests **+2**. After 17 s it suggests **DNF**.
+- **Nothing stops automatically**, the same as with the cutoff (system design decision 5). The
+  suggestion goes to PENDING and the operator's key decides. A suggestion is never applied on its
+  own.
+- **`Esc`** in ARMED cancels an inspection that has started and returns to the waiting state, for
+  a key pressed too early.
+- If inspection is never started, the solve still starts normally and nothing is suggested.
+- `Space` and `Esc` are defaults (csTimer uses the same pair). Screen 10 owns the full keymap.
+
+### 5.2 States
+
+ARMED renders from two new snapshot fields (§5.5), `inspectionMs` and `hands`, by four rules. In
+each, the first match wins.
+
+- **Clock text:** `15` when `inspectionMs === null`, otherwise `inspectionDisplay(inspectionMs)`
+  (§5.4).
+- **Clock colour:** `--go` when `hands === 'ready'` and the text is a number · `--violet` when
+  `inspectionMs === null` · otherwise `#fff`.
+- **Status text:** **LISTO** when `hands === 'ready'` · **MANOS EN POSICIÓN** when
+  `hands === 'down'` · **INSPECCIÓN EXCEDIDA** when `inspectionMs > 17000` · otherwise
+  **INSPECCIÓN**.
+- **Status colour:** `--go` when `hands === 'ready'`, otherwise `--violet`.
+
+The eight moments in the mockup, in the order they can happen:
+
+| # | Moment | Clock | Status line |
+|---|---|---|---|
+| 1 | Mat reset, key not pressed yet | `15`, `--violet` | INSPECCIÓN |
+| 2 | Inspecting | `15` … `1`, `#fff` | INSPECCIÓN |
+| 3 | Both hands down, not green (header `C`, about ½ s) | countdown, `#fff` | MANOS EN POSICIÓN |
+| 4 | Green light (header `A`) | countdown, `--go` | LISTO, `--go` |
+| 5 | 15–17 s elapsed | `+2`, `#fff` | INSPECCIÓN |
+| 6 | 15–17 s elapsed, green light | `+2`, `#fff` | LISTO, `--go` |
+| 7 | Past 17 s | `DNF`, `#fff` | INSPECCIÓN EXCEDIDA |
+| 8 | Inspection never started, green light | `15`, `--go` | LISTO, `--go` |
+
+- **Green tints the status line always, and the digits unless they read +2 or DNF.** When a start
+  would be penalised, that is the news.
+- **+2 and DNF are words only.** Coloured versions (`--gold`, `--red`) were offered and declined
+  (§2.1). The only colours on ARMED are `--violet`, `#fff` and `--go`.
+- **One hand down** (`L` or `R`) counts as `up`: the audience sees no change.
+- Every change is **instant** (§2.2, motion).
+
+### 5.3 Layout
+
+```
+┌──────────────────────────────────────────────────────────────┐  header, as STANDBY
+│ [CTF logo]                              UNIVERSIDAD 12 / 13  │
+├──────────────────────────────────────────────────────────────┤
+│                 ┌───────┐ │ INTENTO 2 DE 3                   │
+│                 │ plate │ │ JOSÉ MARTÍNEZ                    │  body 39.02cqw
+│                 └───────┘                                    │
+│                            9                                 │  clock --fs-clock
+│                        INSPECCIÓN                            │
+├──────────────────────────────────────────────────────────────┤
+│ [net]  MEZCLA                                         (^.^)  │  band, as STANDBY
+│        R' U2 B' L' F D' R2 B U' L F2 U2 R2 D B2 D' F2 L2 …   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Background, header and band** are exactly STANDBY's (§4.2), in its Mezcla form: the veil, the
+header with `UNIVERSIDAD {n} / {total}`, and the band with the cube preview, the scramble and the
+mascot. Resetting the mat swaps only the body, and the band keeps its 10.95cqw height. The maze is
+live throughout ARMED (§2.5).
+
+**Body.** A single flex column, centred on both axes, over a darkening:
+`radial-gradient(52% 58% at 50% 55%, rgba(2,1,12,.72) 0%, rgba(2,1,12,.4) 55%, transparent 80%)`.
+From top to bottom:
+
+1. **Who line.** Flex, `align-items: center`, `gap 1.6cqw`:
+   - the plate (§2.3) at ATTRACT's size: `width 13cqw`, padding `.75cqw 1.1cqw`;
+   - a text block with `padding-left 1.6cqw` and `border-left 1px --violet-deep`, holding two
+     lines in `--fs-body`, `.14em`, `--violet`, `line-height 1.5`:
+     `INTENTO {attemptNo} DE {attemptsPerCompetitor}`, with the attempt number in `#fff` 800, and
+     below it the participant name. **The name line is omitted** when the roster has none.
+2. **Clock.** `--fs-clock`, 800, `line-height .9`, `letter-spacing -.02em`, `tabular-nums`,
+   `margin-top 1.5cqw`.
+3. **Status line.** `--fs-body`, `.24em`, regular weight, `margin-top 1.2cqw`, coloured per §5.2.
+
+**Fit.** The widest text this clock will hold is RUNNING's `4:59.99`, which measures **63.3cqw** at
+`--fs-clock` with roc-grotesk loaded. The column's content is about 26cqw tall in a 39.02cqw body.
+
+**RUNNING keeps this layout.** It was chosen together with RUNNING's, so that when the solve starts
+only the clock's text and colour change and the room's eyes don't move. The rest of RUNNING
+belongs to screen 4.
+
+### 5.4 Core
+
+Pure, in `core/`, tested with `node --test`. Two constants, which are competition rules and not
+event config: `INSPECTION_MS = 15000` and `INSPECTION_DNF_MS = 17000`.
+
+- `inspectionDisplay(elapsedMs)`:
+  - `elapsedMs ≤ 15000` → `String(Math.max(1, Math.ceil((15000 - elapsedMs) / 1000)))`, so it
+    shows `15` at 0 and never shows `0`;
+  - `elapsedMs ≤ 17000` → `'+2'`;
+  - otherwise → `'DNF'`.
+- `suggestedPenalty(inspectionMs)`:
+  - `null` when `inspectionMs` is `null` or `≤ 15000`;
+  - `'+2'` when `≤ 17000`;
+  - `'DNF'` otherwise.
+
+  It uses the same limits as the display, so the countdown reads `+2` exactly when a start would
+  earn one.
+- `handsFromHeader(signalHeader)` → `'down'` for `C`, `'ready'` for `A`, `'up'` for anything else.
+
+**Run state.** ARMED carries `inspectionStartedAt: number | null`.
+
+- `Space` in ARMED sets it, if it is `null`. Any other `Space` in ARMED is ignored.
+- `Esc` in ARMED sets it back to `null`.
+- Leaving ARMED without starting a solve (`N`, `←`/`→`) drops it.
+- ARMED → RUNNING writes `inspectionMs = at - inspectionStartedAt`, or `null`, onto the attempt in
+  progress.
+
+**Timestamps arrive with the events.** The operator window stamps each key event and each mat state
+with `Date.now()` before passing it to the core, so the core has no clock of its own. The mat
+reports at about 10 Hz, so the 15 s and 17 s limits are judged to within about 100 ms. That is
+acceptable, because the result is only a suggestion.
+
+**Attempt record** (extends system design §6):
+
+```jsonc
+{ "attempt": 2, "ms": 154320, "penalty": null, "status": "OK",
+  "scramble": "R U R' U' F2 L D2 B' R F", "inspectionMs": 12840, "at": 1760000000000 }
+```
+
+`inspectionMs` is `null` when inspection was not started. Like the scramble, it is kept so any
+dispute can be settled.
+
+### 5.5 Snapshot changes
+
+This extends §4.4. The audience window still holds no state of its own.
+
+```js
+{
+  phase, competitor, attemptNo, displayMs, scramble, scrambleSvg, signal, standings, result,
+  inspectionMs,   // NEW: now - inspectionStartedAt, or null. Non-null only in ARMED
+  hands,          // NEW: handsFromHeader(state.signalHeader) → 'up' | 'down' | 'ready'
+}
+```
+
+- `inspectionMs` is computed each time a snapshot is sent. Snapshots follow the mat's ~10 Hz
+  packets, so the countdown advances without the audience window running a timer. If packets
+  stop, NO SIGNAL takes over anyway.
+- The audience window calls `inspectionDisplay` itself. It is a pure import, not state.
+
+### 5.6 Requirements for other screens
+
+These came up while designing ARMED. The screens themselves are not designed here.
+
+1. **PENDING (screen 5):** the operator sees the attempt's `suggestedPenalty` together with its
+   `inspectionMs`. Whether the audience sees the suggestion is PENDING's own question.
+2. **RUNNING (screen 4):** keeps ARMED's layout (§5.3). `--gold` and `--red` were declined for ARMED,
+   so the cutoff colours near and past 5:00 are an open decision, not an inherited one.
+3. **OPERATOR PANEL (screen 10):** shows whether inspection is running and how long it has run, and
+   lists `Space` and `Esc`.
+
+### 5.7 Edge cases
+
+| Case | Behaviour |
+|---|---|
+| Inspection never started | Moment 1 stays up. Hands and the green light still show (moment 8). The attempt gets `inspectionMs: null` and no suggestion |
+| `Space` pressed too early | `Esc` returns to moment 1 |
+| Hands lifted before the light turns green | `hands` returns to `up`, and the status line reads INSPECCIÓN again |
+| One hand down | Shown as `up` |
+| Solve starts during +2 or past 17 s | A normal RUNNING. PENDING suggests `+2` or `DNF` |
+| Competitor keeps waiting past 17 s | `DNF` / INSPECCIÓN EXCEDIDA stays up. Nothing stops; the solve goes ahead when they start, and PENDING suggests DNF |
+| Mat reset again during ARMED | No change |
+| Signal lost | NO SIGNAL (screen 7) takes over. `inspectionStartedAt` is kept, so when the signal returns ARMED shows the real elapsed time |
+| Operator window reloaded during ARMED | Only accepted results are persisted (system design §7), so inspection is lost and ARMED returns to moment 1 |
+| Roster has no participant name | Name line omitted; the text block holds only the attempt line |
+
+### 5.8 Testing
+
+**Core (`node --test`):**
+
+- **`inspectionDisplay`:** `0`→`15`, `999`→`15`, `1000`→`14`, `14001`→`1`, `15000`→`1`,
+  `15001`→`+2`, `17000`→`+2`, `17001`→`DNF`.
+- **`suggestedPenalty`:** `null`→`null`, `15000`→`null`, `15001`→`+2`, `17000`→`+2`,
+  `17001`→`DNF`.
+- **`handsFromHeader`:** `C`→`down`, `A`→`ready`, and `L`, `R`, `I`, `S` and `' '`→`up`.
+- **Run state:**
+  - `Space` starts inspection only in ARMED, and only once;
+  - `Esc` clears it;
+  - `N` and `←`/`→` drop it;
+  - ARMED → RUNNING records `inspectionMs`, or `null` when inspection never started.
+
+**Mock driver scenarios** (in addition to system design §9): a start inside 15 s · a start in the
++2 window · a start past 17 s · a start with no inspection · hands down and lifted before green.
+
+**Visual:** render the eight moments at 1920×1080 and compare them against `armed-04-final.html`.
+Then check the invariants:
+- the header and band are identical to STANDBY's Mezcla state;
+- `4:59.99` fits at `--fs-clock`;
+- `--go` appears only when `hands === 'ready'`;
+- `+2` and `DNF` are always `#fff`;
+- there is no `--gold`, and no `--red` except the mascot's glow.
+
+---
+
+## 6. Open across screens
+
 - **Motion signature:** decide on the first screen that needs one (§2.2).
 - **ATTRACT face re-tune** against the new asset (§3.4).
-- **Screens 3–10**, in roadmap order. Next up: **ARMED**.
+- **Screens 4–10**, in roadmap order. Next up: **RUNNING**, which inherits ARMED's layout (§5.6).
