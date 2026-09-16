@@ -1,7 +1,8 @@
 # Roadmap
 
 Where this project stands, what is settled, and what is left. Written **2026-09-15** as a
-handoff so a fresh session can pick up without re-deriving anything.
+handoff so a fresh session can pick up without re-deriving anything; updated **2026-09-16**, when
+STANDBY was decided.
 
 Target event: **CTF Interuniversitario 2026**, October. 13 universities, one participant each.
 
@@ -12,7 +13,7 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 | What | Path |
 |---|---|
 | System design (approved) | `docs/superpowers/specs/2026-09-15-tournament-display-system-design.md` |
-| UI design spec | **not written yet** — being built screen by screen |
+| UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT and STANDBY written; the rest are added screen by screen |
 | Vendored code + provenance | `vendor/` |
 | Brand assets + university logos | `assets/`, `assets/universidades/` |
 | csTimer reference (never executed) | `docs/reference/cstimer-timer-stackmat.js` |
@@ -20,9 +21,9 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 | Upstream csTimer clone | `../cstimer` (blobless partial clone, kept for re-pulling `stackmat.js`) |
 
 ⚠ **The mockup HTML is not versioned** — a deliberate choice. Every *asset* those mockups use is
-now committed under `assets/`, so what remains at risk is only the CSS: the mask stack, the type
-scale and the grid maths. Transcribe those into the UI spec before that directory can be safely
-lost.
+now committed under `assets/`, and the UI spec transcribes every value a decided screen depends
+on (ATTRACT and STANDBY so far). Keep doing that for each new screen, so that directory can be
+lost without losing a decision.
 
 ---
 
@@ -51,8 +52,8 @@ text as well as colour.
 
 | # | Screen | Purpose | Status | Still open |
 |---|---|---|---|---|
-| 1 | **ATTRACT** | Pre-event; room filling | ✅ **Decided** — `attract-DECIDED.html` | none |
-| 2 | **STANDBY** | Between competitors; you scramble the cube | draft exists | scramble size, standings window (8 rows vs all 13) |
+| 1 | **ATTRACT** | Pre-event; room filling; also STANDBY before anyone finishes | ✅ **Decided** — `attract-DECIDED.html` | re-tune the face mask against the new `rootkitty-face.svg` (UI spec §3.4) |
+| 2 | **STANDBY** | Between competitors; you scramble the cube | ✅ **Decided** — `standby-09-final.html` | none |
 | 3 | **ARMED** | Mat at 0.00, waiting for hands | not started | how hands-down / green-light read at 10 m |
 | 4 | **RUNNING** | Live solve, clock is the hero | not started | **tabular figures check**, maze freeze, cutoff colour steps |
 | 5 | **PENDING** | Time frozen, awaiting operator | not started | how visible "awaiting decision" should be to the audience |
@@ -60,13 +61,10 @@ text as well as colour.
 | 7 | **NO SIGNAL** | Mat stopped transmitting | draft exists | wording; whether the audience sees it at all |
 | 8 | **SIGNAL CHECK** | Pre-event mic diagnostic (`S`) | not started | waveform rendering, operator-only |
 | 9 | **SETUP** | Mic permission, device picker, resume/fresh | not started | first-run flow; this is where most real failures surface |
-| 10 | **OPERATOR PANEL** | The control surface | not started | layout, roster navigation, signal-health meter |
+| 10 | **OPERATOR PANEL** | The control surface | not started | layout, roster navigation, signal-health meter; must carry the full standings, the mat instruction and a large scramble (UI spec §4.6) |
 
-**Settled for ATTRACT** (transcribe into the UI spec): RootKitty face crop masked by your
-`.hero__face` radial **intersected** with a vertical fade that dissolves the crown — the fur reads
-at luminance 29–30 against a ground of 4 without it. Face nose centred on the "T" via
-`top: calc(var(--logo-w) * -0.1)`, no `left` offset. One type scale, ~1.6× per step. University
-plates on a 28-track grid, span 4 → 7 over 6, second row pinned to track 3.
+The settled values for ATTRACT and STANDBY, and the shared tokens (radius, four type sizes,
+palette), are in the UI spec. New screens reuse those tokens before adding any of their own.
 
 ---
 
@@ -101,14 +99,14 @@ independent of UI design and could begin immediately.
 | **Microphone device** | The single most common real failure — the mat is on line-in, the browser defaults to the built-in mic | Device picker on SETUP *and* in the operator panel |
 | **Secure context** | `getUserMedia` fails silently on `file://` | Always serve via `serve.js` |
 | **Extended vs mirrored display** | Two windows want an extended desktop | Degrades gracefully; confirm at the venue |
-| **Mockup HTML unversioned** | The decided ATTRACT *markup* is gitignored. Its **assets are now in `assets/`**, so only the CSS values are at risk | Transcribe the settled values into the UI spec |
+| **Mockup HTML unversioned** | The decided mockups are gitignored. Their **assets are in `assets/`** | ATTRACT and STANDBY values are transcribed into the UI spec; do the same for every new screen |
 | **No mic on this dev machine** | WSLg's `RDPSource` delivers zero samples | Mock driver covers all logic; one real session covers the rest |
 
 ---
 
 ## Immediate next step
 
-Brainstorm screen 2 (**STANDBY**) in the visual companion, then continue down the table. Start the
+Brainstorm screen 3 (**ARMED**) in the visual companion, then continue down the table. Start the
 companion with:
 
 ```sh
@@ -116,4 +114,5 @@ companion with:
   --project-dir /home/noob_master/cube-tournament-display --session tournament-display
 ```
 
-Existing screens are preserved; `attract-DECIDED.html` is the reference for house style.
+Existing screens are preserved. `standby-09-final.html` is the closest reference for house style,
+and the UI spec's §2 holds the shared tokens.
