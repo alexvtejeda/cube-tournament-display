@@ -119,8 +119,9 @@ face: viewBox `68.14 × 61.83`, cut flat just below the nose, clean (7.6 KB). Th
 13.6% of the image height above the bottom** of the viewBox, which is empty. To seat the cut on an
 edge, offset by `0.136 × 61.83/68.14 = 0.1234 × width`.
 
-- The previous crop (viewBox `958 390 680 480`, 99 unused glyph defs) is in git history at
-  `1bbe2b4`, and a copy is kept at `.superpowers/brainstorm/tournament-display/content/rootkitty-face.svg`.
+- **ATTRACT keeps the previous crop** (viewBox `958 390 680 480`, 99 unused glyph defs), restored
+  from `1bbe2b4` as `assets/rootkitty-face-attract.svg` (decided 2026-09-18, §3.4). The new crop is
+  the band mascot on STANDBY and ARMED.
 - This supersedes system design §11, which lists `rootkitty-face.svg` as unused.
 
 ### 2.5 Maze
@@ -158,9 +159,10 @@ university has finished (§4.1).
 
 ### 3.2 Hero (vertically centred, `--face-w: 34cqw`, `--logo-w: 30cqw`)
 
-- **Face.** `width: var(--face-w)`; wrapper margins `calc(var(--face-w) * -0.19)` top and
-  `calc(var(--face-w) * -0.20)` bottom. `top: calc(var(--logo-w) * -0.1)` centres the nose on the
-  "T"; there is no `left` offset. Mask, intersected:
+- **Face.** `assets/rootkitty-face-attract.svg` (§2.4) at `width: var(--face-w)`; wrapper margins
+  `calc(var(--face-w) * -0.19)` top and `calc(var(--face-w) * -0.20)` bottom.
+  `top: calc(var(--logo-w) * -0.1)` centres the nose on the "T"; there is no `left` offset. Mask,
+  intersected:
 
   ```css
   mask-image:
@@ -182,8 +184,9 @@ university has finished (§4.1).
 
 - **Plates.** A 28-track grid, `gap .85cqw`, `margin-top 1.5cqw`. Each plate spans 4 tracks: 7 in
   the first row, 6 in the second, and the second row starts at track 3 (`.plate:nth-child(8)
-  { grid-column: 3 / span 4 }`). Roster order: Loyola, INTEC, ITLA, PUCMM, UAPA, UCE, UCSD, UNAPEC,
-  UNIBE, UNICARIBE, UNICDA, UNPHU, UTESA.
+  { grid-column: 3 / span 4 }`). The plates follow the roster in `config/event.json`, which is also
+  the turn order (§3.4): Loyola, INTEC, ITLA, PUCMM, UAPA, UCSD, UCE, UNAPEC, UNIBE, UNICARIBE,
+  UNICDA, UNPHU, UTESA.
 - **Footer** "Comenzamos en breve": `--fs-body`, 500, `letter-spacing` and `text-indent` `.2em`,
   `#fff`, `margin-top 1.4cqw`,
   `text-shadow 0 0 .9cqw rgba(2,1,12,.95), 0 .12cqw .45cqw rgba(2,1,12,.9)`. It is white with a
@@ -193,9 +196,11 @@ university has finished (§4.1).
 
 1. **Plate radius** `4px` → `var(--radius)`, so the plate is one component with one radius.
 2. **Face asset replaced** (§2.4). The mask and offsets in §3.2 were tuned against the **previous**
-   crop, which had a different aspect ratio (1.42 vs 1.10). **Re-tune `--face-w`, the two margins
-   and the mask stops against the new asset before building ATTRACT.** The goals stay the same: the
-   crown dissolves, the eyes are untouched, and the nose is centred on the "T".
+   crop, which had a different aspect ratio (1.42 vs 1.10). A re-tune against the new asset was
+   tried on 2026-09-18, at the approved 34cqw and at 40cqw, and **declined**: ATTRACT keeps the
+   previous crop as `assets/rootkitty-face-attract.svg`, so the values in §3.2 stand unchanged.
+3. **Plate order** follows the roster (decided 2026-09-18). The approved mockup put UCE before UCSD.
+   `config/event.json`, generated from the CTF database, has UCSD first, and it also sets the turns.
 
 ---
 
@@ -634,5 +639,4 @@ Then check the invariants:
 ## 6. Open across screens
 
 - **Motion signature:** decide on the first screen that needs one (§2.2).
-- **ATTRACT face re-tune** against the new asset (§3.4).
 - **Screens 4–10**, in roadmap order. Next up: **RUNNING**, which inherits ARMED's layout (§5.6).

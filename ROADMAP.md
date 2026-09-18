@@ -2,7 +2,8 @@
 
 Where this project stands, what is settled, and what is left. Written **2026-09-15** as a
 handoff so a fresh session can pick up without re-deriving anything; updated **2026-09-16**, when
-STANDBY and then ARMED were decided, and **2026-09-18**, when the engine plan was written.
+STANDBY and then ARMED were decided, and **2026-09-18**, when the engine plan and the first screens
+plan were written.
 
 Target event: **CTF Interuniversitario 2026**, October. 13 universities, one participant each.
 
@@ -14,7 +15,7 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 |---|---|
 | System design (approved) | `docs/superpowers/specs/2026-09-15-tournament-display-system-design.md` |
 | UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT, STANDBY and ARMED written; the rest are added screen by screen |
-| Implementation plans | `docs/superpowers/plans/` — the **engine** plan, `2026-09-18-tournament-engine.md` (Phase 2 rows 0–4 and 8, and row 5's key loop), is written; a second plan, for the screens, follows the last screen design |
+| Implementation plans | `docs/superpowers/plans/` — the **engine** plan, `2026-09-18-tournament-engine.md` (Phase 2 rows 0–4 and 8, and row 5's key loop), and the first **screens** plan, `2026-09-18-audience-screens.md` (row 6 for ATTRACT, STANDBY and ARMED, and row 7; it runs after the engine plan), are written. A plan for screens 4–10 follows the last screen design |
 | Vendored code + provenance | `vendor/` |
 | Brand assets + university logos | `assets/`, `assets/universidades/` |
 | csTimer reference (never executed) | `docs/reference/cstimer-timer-stackmat.js` |
@@ -55,7 +56,7 @@ text as well as colour.
 
 | # | Screen | Purpose | Status | Still open |
 |---|---|---|---|---|
-| 1 | **ATTRACT** | Pre-event; room filling; also STANDBY before anyone finishes | ✅ **Decided** — `attract-DECIDED.html` | re-tune the face mask against the new `rootkitty-face.svg` (UI spec §3.4) |
+| 1 | **ATTRACT** | Pre-event; room filling; also STANDBY before anyone finishes | ✅ **Decided** — `attract-DECIDED.html` | none — keeps its approved face crop, and the plates follow the roster (UI spec §3.4) |
 | 2 | **STANDBY** | Between competitors; you scramble the cube | ✅ **Decided** — `standby-09-final.html` | none |
 | 3 | **ARMED** | Mat at 0.00; inspection, hands, green light | ✅ **Decided** — `armed-04-final.html` | none |
 | 4 | **RUNNING** | Live solve, clock is the hero | not started | inherits ARMED's layout (UI spec §5.3); cutoff colour steps — `--gold`/`--red` were declined on ARMED, so decide fresh |
@@ -111,8 +112,8 @@ independent of UI design and could begin immediately.
 
 Brainstorm screen 4 (**RUNNING**) in the visual companion, then continue down the table. RUNNING
 starts from ARMED's layout (UI spec §5.3), so `armed-04-final.html` is its starting point. The engine
-plan touches no screen design, so it can be executed alongside these brainstorms. Start the
-companion with:
+plan touches no screen design, so it can be executed alongside these brainstorms; the first screens
+plan runs after it. Start the companion with:
 
 ```sh
 ~/.claude/skills/visual-companion/scripts/start-server.sh \
