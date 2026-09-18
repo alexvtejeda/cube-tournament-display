@@ -2,7 +2,7 @@
 
 Where this project stands, what is settled, and what is left. Written **2026-09-15** as a
 handoff so a fresh session can pick up without re-deriving anything; updated **2026-09-16**, when
-STANDBY and then ARMED were decided.
+STANDBY and then ARMED were decided, and **2026-09-18**, when the engine plan was written.
 
 Target event: **CTF Interuniversitario 2026**, October. 13 universities, one participant each.
 
@@ -14,6 +14,7 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 |---|---|
 | System design (approved) | `docs/superpowers/specs/2026-09-15-tournament-display-system-design.md` |
 | UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT, STANDBY and ARMED written; the rest are added screen by screen |
+| Implementation plans | `docs/superpowers/plans/` — the **engine** plan, `2026-09-18-tournament-engine.md` (Phase 2 rows 0–4 and 8, and row 5's key loop), is written; a second plan, for the screens, follows the last screen design |
 | Vendored code + provenance | `vendor/` |
 | Brand assets + university logos | `assets/`, `assets/universidades/` |
 | csTimer reference (never executed) | `docs/reference/cstimer-timer-stackmat.js` |
@@ -109,7 +110,8 @@ independent of UI design and could begin immediately.
 ## Immediate next step
 
 Brainstorm screen 4 (**RUNNING**) in the visual companion, then continue down the table. RUNNING
-starts from ARMED's layout (UI spec §5.3), so `armed-04-final.html` is its starting point. Start the
+starts from ARMED's layout (UI spec §5.3), so `armed-04-final.html` is its starting point. The engine
+plan touches no screen design, so it can be executed alongside these brainstorms. Start the
 companion with:
 
 ```sh
