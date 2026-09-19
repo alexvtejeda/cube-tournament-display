@@ -1,7 +1,7 @@
 # Tournament Display — Operator UI Design
 
 **Date:** 2026-09-19
-**Status:** In progress — written screen by screen. **SIGNAL CHECK** (screen 8) is approved; SETUP (9) and OPERATOR PANEL (10) are not yet designed
+**Status:** In progress — written screen by screen. **SIGNAL CHECK** (screen 8) and **SETUP** (screen 9) are approved; OPERATOR PANEL (10) is not yet designed
 **Scope:** Operator-window screens: layout, copy, visual values, and the data each screen needs from the core
 **Companion specs:** [`2026-09-15-tournament-display-system-design.md`](2026-09-15-tournament-display-system-design.md) (architecture, run loop, drivers, failure modes) and [`2026-09-16-tournament-display-ui-design.md`](2026-09-16-tournament-display-ui-design.md), the **audience** UI spec. This document is its counterpart for the other window.
 
@@ -22,11 +22,11 @@ spec wins** — see §2.2, where the mockup's ad-hoc type sizes were normalised 
 | Screen | Status | Mockups (visual reference) |
 |---|---|---|
 | 8 SIGNAL CHECK | ✅ Approved | **`signal-04-final.html`**; decided in `signal-01-look.html` (look), `signal-02-layout.html` (layout), `signal-03-wave.html` (the waveform) |
-| 9 SETUP | Not yet designed | — |
+| 9 SETUP | ✅ Approved | **`setup-01-layout.html`** (layout A, the lean launchpad); `setup-02-firstrun.html` (opening state C, the fourth link state and the announced step) |
 | 10 OPERATOR PANEL | Not yet designed | — |
 
 SIGNAL CHECK asks for four changes to the engine plan, one of which is a bug that plan would
-otherwise ship. They are in §4.
+otherwise ship. They are in §5.
 
 ---
 
@@ -136,17 +136,20 @@ resetting it, hands, a whole test solve, pulling the cable — reaches the event
 | ARMED, inspection running | ignored — `Esc` cancels inspection first |
 | RUNNING, PENDING | ignored |
 | RESULTS, once that phase exists | opens |
+| SETUP, before the event exists | opens, and `S` / `Esc` return **to SETUP** — the only case with no phase to restore (§4.14) |
 
 **Why ARMED drops back to SCRAMBLE.** ARMED is the one held screen that draws live mat data: the
 hands, the green light and the inspection countdown (audience §5.2). Frozen on the projector those
 become a lie — a green light that is not lit, a countdown stopped at 9. So opening the check from
-ARMED dispatches `disarm` (§4): the phase returns to SCRAMBLE, inspection is cleared, and **the
+ARMED dispatches `disarm` (§5): the phase returns to SCRAMBLE, inspection is cleared, and **the
 scramble is kept**, because the competitor has not solved yet and must not be handed a new one. The
 room sees Mezcla, which is true. On closing, a mat still at 0.00 re-arms on its next packet, about a
 tenth of a second later.
 
-**It never blocks.** The check can be left with two of six items ticked; nothing is enforced, here
-or anywhere else. Whether SETUP requires a complete test before the event is SETUP's question.
+**It never blocks.** The check can be left with two of six items ticked; nothing is enforced *on
+this screen*. SETUP answered the question it was left: a **fresh** event is gated on a live signal
+and 6 of 6, a **resume** is gated on nothing (§4.2). Mid-event — which is when this screen is open —
+nothing is ever enforced.
 
 **It works on the mock driver** (`?driver=mock`), so the whole screen can be rehearsed on a machine
 with no microphone (system design §10, and the risk "No mic on this dev machine").
@@ -163,8 +166,12 @@ The verdict is a picture before it is a sentence: five links, left to right, eac
 | 4 | SEÑAL | `Limpia` · `Con ruido` | `ruido 3 %` |
 | 5 | PRUEBA | `3 de 6` | `faltan 3` · `completa` |
 
-**Three states, and only three:** good (white, `✓` in a white dot), broken (`--red`, `✕` in a red
-dot), and unknown (the unknown violet, a dashed empty dot).
+**Four states, and only four:** good (white, `✓` in a white dot), broken (`--red`, `✕` in a red
+dot), unknown (the unknown violet, a dashed empty dot), and **waiting** (an empty dot with a solid
+1.5px white ring, matching the dashed ring's weight) — *this is where you are*. Only MICRÓFONO
+produces `waiting`, and only when the
+driver has not been started and permission is not `denied`; it was added by SETUP, and §4.3 gives
+the reasoning.
 
 **The first broken link turns red, and everything after it is unknown.** A signal cannot be judged
 clean when no packets arrive, so PAQUETES failing puts SEÑAL and PRUEBA in the dashed state. A link
@@ -178,7 +185,7 @@ the mat, not about the signal. PRUEBA is never red: it is a count, not a fault.
 |---|---|---|
 | MICRÓFONO | the driver started, and `navigator.permissions` for `microphone` is not `denied` | both hold |
 | SONIDO | `10 · log10(power)`, rounded, clamped at −40 dB | above **−39 dB** |
-| PAQUETES | **fresh** states (§4) counted over the last 2 s, reported per second | **≥ 8 / s** |
+| PAQUETES | **fresh** states (§5) counted over the last 2 s, reported per second | **≥ 8 / s** |
 | SEÑAL | `noise`, 0–1, from the most recent packet, shown as a percentage | **≤ 25 %** |
 | PRUEBA | §3.4 | 6 of 6 |
 
@@ -203,7 +210,8 @@ broken link. The line is `--red` whenever a link is broken, `#fff` otherwise.
 | First broken link | Line | Sentence |
 |---|---|---|
 | MICRÓFONO, denied | **SIN MICRÓFONO** | El navegador no permite el micrófono. Permítelo y vuelve a abrir esta pantalla. |
-| MICRÓFONO, not connected | **CRONÓMETRO SIN CONECTAR** | Pulsa Conectar para empezar a escuchar. |
+| MICRÓFONO, not connected *(waiting, not broken)* | **CRONÓMETRO SIN CONECTAR** | Pulsa Conectar para empezar a escuchar. On SETUP a second sentence follows in the unknown violet (§4.4) |
+| MICRÓFONO, refused — another window holds the mic | **OTRA VENTANA TIENE EL MANDO** | Ya hay una ventana de operador abierta. Cierra esta y vuelve a la otra. |
 | SONIDO | **NO ENTRA SONIDO** | No entra nada por esta entrada. Revisa el cable o elige otra entrada. |
 | PAQUETES, none | **NO SE OYE EL CRONÓMETRO** | Entra sonido, pero no trae paquetes. ¿Está encendido el cronómetro? ¿Es la entrada de línea? |
 | PAQUETES, some | **SE PIERDEN PAQUETES** | Llegan {n} de cada 10. Suele ser el cable o el volumen de entrada. |
@@ -214,7 +222,10 @@ broken link. The line is `--red` whenever a link is broken, `#fff` otherwise.
 
 The line carries a `✓` before it when nothing is broken and a `✕` when something is, so the verdict
 is not colour alone (system design §13: state is conveyed by text as well as colour). **MIDIENDO LA
-ENTRADA carries neither**: nothing has been judged yet, and a tick there would claim otherwise.
+ENTRADA and CRONÓMETRO SIN CONECTAR carry neither**: nothing has been judged yet, and a tick there
+would claim otherwise. `CRONÓMETRO SIN CONECTAR` is therefore **not red** — its link is `waiting`,
+not broken (§3.2, §4.3). `OTRA VENTANA TIENE EL MANDO` is red and carries a `✕`, because there the
+microphone is genuinely unavailable rather than merely unstarted.
 
 ### 3.4 The mat test
 
@@ -376,7 +387,7 @@ byteText(bytes)                → how they are written on screen
 
 `packetTimes` is the timestamps of fresh states inside the window; the view keeps that array and
 trims it. `js/ui/signal-check.js` draws, and `js/ui/operator.js` routes the mat to the check while
-it is open (§4).
+it is open (§5).
 
 ### 3.11 The snapshot
 
@@ -395,9 +406,11 @@ of freezing mid-way.
    diagnoses. If the signal was already lost when the check opened, NO SIGNAL can sit on the
    projector for a minute or more. That is a reason for it to be calm rather than alarming, and it
    joins the requirement RESULTS already set (audience §8.9): it must not take over RESULTS.
-2. **SETUP (screen 9):** reuses the chain (§3.2), the verdict (§3.3), the picker (§3.8) and the
-   remembered device. Its own question is the first-run flow: permission, resume or fresh, and
-   whether a complete mat test is required before an event starts.
+2. **SETUP (screen 9):** ✅ **answered in §4.** It reuses the chain (§3.2), the verdict (§3.3), the
+   picker (§3.8) and the remembered device. Its own question — permission, resume or fresh, and
+   whether a complete mat test is required before an event starts — is settled there: a fresh event
+   is gated on a live signal and 6 of 6, a resume is gated on nothing (§4.2). It also adds a fourth
+   link state and splits one verdict row, both of which land back in this screen (§4.13).
 3. **OPERATOR PANEL (screen 10):** its signal-health meter (system design §8) is this chain
    compressed to one row — the same `diagnose` call, PAQUETES and SEÑAL live during the event — and
    it lists `S` as the way to the full check. This joins the requirements already recorded in
@@ -413,8 +426,8 @@ of freezing mid-way.
 | Signal lost while the check is open | PAQUETES breaks, the readout reads SIN SEÑAL with `—`, the ticks already earned stay |
 | Device unplugged | `devicechange` refreshes the list. The decoder keeps its stream, so MICRÓFONO stays `Permitido` and SONIDO falls to the floor — the sentence points at the cable and the input, which is the right advice either way |
 | Permission revoked mid-session | MICRÓFONO breaks with SIN MICRÓFONO, everything after it unknown |
-| Mock mode | Works. MICRÓFONO reads `Mock mat`, and the waveform draws the synthesised trace (§4) |
-| A second operator window | It never takes the microphone (engine plan decision 8), so its check reads CRONÓMETRO SIN CONECTAR. Connecting there is refused, as everywhere else |
+| Mock mode | Works. MICRÓFONO reads `Mock mat`, and the waveform draws the synthesised trace (§5) |
+| A second operator window | It never takes the microphone (engine plan decision 8), so its check reads **OTRA VENTANA TIENE EL MANDO**, red (§3.3). Connecting there is refused, as everywhere else — which is why this case is red and an unstarted mat is not (§4.3) |
 | Window smaller than 1280 × 800 | The page scrolls. Nothing shrinks (§2.2) |
 | `prefers-reduced-motion` | No change. The waveform is a reading, not an animation (§2.3) |
 
@@ -438,7 +451,287 @@ does not change although the mock keeps playing; `Esc` returns to the event in t
 
 ---
 
-## 4. Changes to the implementation plans
+## 4. Screen 9 — SETUP
+
+The first screen of the day, and the last one before the event exists. The roadmap calls it the
+place "where most real failures surface", and system design §8 asks for a blocking setup screen when
+the microphone is denied. It reuses the chain (§3.2), the verdict (§3.3) and the picker (§3.8), and
+adds the only two questions that are its own: **which event**, and **is the mat proved**.
+
+### 4.1 What it is, and when it opens
+
+**It opens on every load, and it is one-way.** There is no key back to it. Once the operator leaves
+— by resuming or by starting fresh — the device picker lives in the operator panel (§4.14) and `S`
+opens SIGNAL CHECK. Nothing on SETUP is needed again that those two do not carry.
+
+**One screen, not a wizard.** Chain, picker, test and both actions are on it from the first frame,
+all measuring. The gate is a state the operator can see, not a refusal they collide with: the action
+that is not available is drawn as unavailable, and the verdict sentence already names what is
+missing. Nothing is sequenced, which matches §2.3 — this window has no motion and no steps.
+
+**It is not a bench.** SIGNAL CHECK holds the event where it was and returns to it (§3.1). SETUP
+precedes the event: there is nothing to hold, and nothing to return to.
+
+### 4.2 The gate
+
+Asymmetric, and deliberately so.
+
+| Action | Available when |
+|---|---|
+| **Reanudar evento** | a saved event with at least one recorded attempt exists, **and this window holds the operator lock**. Nothing else |
+| **Empezar evento nuevo** | MICRÓFONO, SONIDO and PAQUETES are all good **and** the test is 6 of 6 |
+
+**Why fresh is gated.** Before the event there is time, and an untested mat is the one failure that
+cannot be recovered from with thirteen universities watching. Proving it costs about fifteen seconds
+at the mat (§4.8).
+
+**Why resume is not.** A resume happens after a crash, a closed tab or a sleeping laptop — often
+*because* something went wrong. A door that demands a clean signal would lock the operator out at
+the exact moment they most need in, and they would be doing a test solve in front of the room.
+
+**Why resume asks for no hardware at all, not even a microphone.** Recorded results are already on disk,
+and the only way to reach them — to read standings or to export (system design §7) — is through the
+event. Making that depend on working hardware means a dead mat can strand results that are sitting
+in `localStorage`. This is looser than "a resume needs a working mic": the looser rule is the right
+one, because the failure it prevents is worse than the one it allows.
+
+**SEÑAL does not gate.** Noise is a warning with its own sentence, not a stop. A mat that is sending
+clean packets through a noisy line still runs an event, and §2.1 is explicit that there is no
+warning colour to escalate it with.
+
+**PAQUETES gates even though 6 of 6 implies it.** The ticks reset whenever the device changes
+(§3.4), so a full test does prove packets flowed recently — but not that they are flowing *now*. A
+cable pulled between the test and the button is exactly the case this catches.
+
+### 4.3 The chain, and a fourth state
+
+SETUP draws the chain of §3.2 unchanged, with one addition that §3.2 must also learn.
+
+**`waiting` — a solid white ring, empty, neither filled nor dashed.** It means *this is where you
+are*: the link is not good, not broken, and not unmeasured — it is waiting for the operator. Only
+MICRÓFONO produces it, and only when the driver has not been started yet and permission is not
+`denied`.
+
+**Why this is not simply red.** Read literally, §3.3 makes an unstarted microphone the first broken
+link, so the first screen of the day would be a red fault that means "press the button". Red is the
+only colour in this window that says something is wrong (§2.1), and spending it on "you have not
+started" teaches the operator, on their very first screen, that red is not urgent. The fourth state
+costs one rule; the alternative costs red its meaning.
+
+**Red is kept for the two cases that have earned it:** permission actually `denied`, and a second
+operator window, where connecting is refused rather than pending (§4.13).
+
+The other four links are `unknown` until the mat is connected, exactly as §3.2 already specifies for
+everything after a break. PRUEBA reads `0 de 6`.
+
+### 4.4 The verdict
+
+The table of §3.3 applies unchanged, with one row re-pointed and one row added (§4.13). On SETUP the
+common opening verdict is:
+
+| Condition | Line | Sentence |
+|---|---|---|
+| Not connected, connectable | **CRONÓMETRO SIN CONECTAR** | Pulsa Conectar para empezar a escuchar. *El navegador te pedirá permiso para usar el micrófono.* |
+
+- The line carries **no `✕` and is not red**, because nothing is broken — this is the `waiting`
+  state of §4.3. It also carries no `✓`: nothing has been judged. This matches how §3.3 already
+  treats **MIDIENDO LA ENTRADA**.
+- The second sentence is in the unknown violet, and it exists because system design §8 asks that the
+  gesture audio requires be **"a step, not a surprise"**. The browser's own permission prompt is the
+  most surprising thing that happens on this screen; announcing it is the cheapest possible fix.
+
+Once connected, the verdict is §3.3's, unmodified: **SEÑAL LIMPIA** with the missing items while the
+test is incomplete, **TODO LISTO** at 6 of 6, and the red rows whenever a link actually breaks.
+
+### 4.5 The event block
+
+Top of the left column. It answers "which event" before the operator is asked to choose.
+
+| State | Reading (`--o-fs-num`) | Detail (`--o-fs-body`, `--violet`) |
+|---|---|---|
+| A saved event | `7 de 13 universidades` | `19 intentos registrados · la última, UNAPEC, hace 14 min` |
+| Nothing saved | `No hay nada guardado` | `Este será el primero` |
+| Mock (`?driver=mock`) | as above | prefixed `Ensayo · ` |
+
+- All of it comes from code the engine plan already writes: `event.attempts.length`,
+  `startedCount(event, null)`, and `at` on the last attempt. **No engine amendment is needed.**
+- With nothing saved, the block is drawn in the unknown violet with a **dashed** 1px border, and the
+  Reanudar button is not drawn at all — not drawn-and-disabled. There is nothing to explain.
+- A saved event with **zero** recorded attempts counts as nothing saved (§4.15).
+
+### 4.6 Starting fresh
+
+`Empezar evento nuevo` discards the saved event. It is not archived: this project runs many
+rehearsal events, and an archive of throwaways is a junkyard the operator has to ignore.
+
+**A real event requires the count typed.** The button's second state names what is about to be lost
+and asks for the number of recorded attempts — `19` — before it arms. A number that changes every
+time forces the sentence to be read; a fixed word becomes muscle memory.
+
+**Mock mode is exempt.** `?driver=mock` saves under its own storage key and can never touch a real
+event's results (engine plan decision 11). A rehearsal clears on a single press, with no typing.
+This is what keeps the typed confirm worth having: it is performed two or three times in the life of
+the project rather than twenty, so it is still read when it appears.
+
+Cancelling is clicking anywhere else. There is no modal.
+
+### 4.7 The picker and the remembered device
+
+§3.8 unchanged, including the `Micrófono N` rewrite (§2.4), the restart-on-choice, and the
+`devicechange` refresh. Two things are SETUP's own:
+
+- **Before connecting**, the picker is drawn dashed in the unknown violet and reads `Elige una
+  entrada al conectar`. The browser does not give real device labels until permission is granted
+  (§2.4), so a list of invented names before the prompt would be worse than no list.
+- **The remembered device is applied on connect**, not offered. If the stored device is gone, the
+  browser's default is used and the picker shows what was actually opened.
+
+### 4.8 The mat test on SETUP
+
+The six items of §3.4, unchanged, with the same reset-on-device-change rule.
+
+**It is satisfiable alone.** Both hands down, green light, lift, slap, reset — about fifteen seconds
+at the mat, with no competitor and no cube. This matters because it gates starting: a gate that
+needed a second person would be a gate that gets worked around.
+
+**One title, not two.** The list is always `PRUEBA DEL CRONÓMETRO`. While it is incomplete it
+carries the line `Se marcan solos mientras usas el cronómetro.` in `--o-fs-body`, which is what
+keeps six dashed circles from reading as six failures. *This normalises the approved mockup, which
+retitled the list to "Lo que hay que probar" before anything was ticked; a label that changes under
+the operator is worse than the problem it solves, and §1 gives this spec the last word.*
+
+### 4.9 Layout
+
+Drawn at 1440 × 900 (§2.2). Header, chain and verdict are §3.9's, unchanged.
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│ OPERADOR · PREPARAR   Nada de esto llega a la sala todavía   [S] señal…   │  header
+├───────────────────────────────────────────────────────────────────────────┤
+│  ( )───────( )- - - - -( )- - - - -( )- - - - -( )                        │
+│  MICRÓFONO  SONIDO     PAQUETES    SEÑAL       PRUEBA                     │  the chain
+│  Sin conectar  —        —           —          0 de 6                     │
+│  [Conectar]                                                               │
+│                                                                           │
+│  CRONÓMETRO SIN CONECTAR                                                  │  the verdict
+│  Pulsa Conectar para empezar a escuchar. El navegador te pedirá permiso…   │
+├──────────────────────────────────────────────┬────────────────────────────┤
+│  ┌────────────────────────────────────────┐  │  LO QUE DICE EL CRONÓMETRO │
+│  │ EVENTO                                 │  │            —               │
+│  │ No hay nada guardado                   │  │        SIN SEÑAL           │
+│  │ Este será el primero                   │  │    [IZQ]  ( )  [DER]       │
+│  └────────────────────────────────────────┘  │                            │
+│  ENTRADA                                     │  PRUEBA DEL CRONÓMETRO     │
+│  [Elige una entrada al conectar ▾]           │  ○ Mano izq.  ○ Mano der.  │
+│                                              │  ○ Luz verde  ○ Arranca    │
+│  ┌ Empezar evento nuevo ─────────────────┐   │  ○ Para       ○ Vuelve a … │
+│  └ Primero hay que conectar y probar ────┘   │  Se marcan solos mientras… │
+└──────────────────────────────────────────────┴────────────────────────────┘
+```
+
+| Element | Value |
+|---|---|
+| Lower half | two columns, **1.25 : 1**, divided by 1px `--violet-deep`; 24px and `--o-gutter` padding |
+| Left column | the event block, then the picker, then the actions **pinned to the bottom** |
+| Right column | the readout centred (clock, state line, hands row, 22px apart), the test **bottom-aligned**, two columns reading across |
+| Event block | 1px `--violet-deep`, `--o-radius`, 18px 20px. Dashed in the unknown violet when nothing is saved |
+| Buttons | full width, 16px 18px, `--o-radius`, `--o-fs-lead`, weight 800. Primary: `#fff` fill, `--bg-deep` text |
+| A gated button | transparent, unknown violet, **1.5px dashed** — the same vocabulary as an untested item |
+| The reason line | unknown violet, 14px, centred, 8px under the gated button |
+| Conectar | on the MICRÓFONO link where its reading would be: 9px 18px, `--o-fs-body`, `#fff` fill |
+
+### 4.10 Keys
+
+| Key | Does |
+|---|---|
+| `Enter` | presses **Conectar** while nothing is connected — the only action on the screen at that point |
+| `S` | opens SIGNAL CHECK, which returns to SETUP rather than to an event (§4.13) |
+| `Esc` | nothing **on SETUP itself** — there is nothing to cancel and nowhere to go back to. Inside SIGNAL CHECK opened from here, `Esc` still closes it and returns to SETUP (§3.1) |
+
+### 4.11 Core
+
+One new pure module. Everything else is §3.10's, reused.
+
+```js
+// js/core/setup-gate.js
+setupGate({ diagnosis, test, saved, mock })
+  → { resume: { shown, enabled },
+      fresh:  { shown, enabled, why, confirm, count } }   // confirm ∈ 'none' | 'typed'
+savedSummary(event)  → null | { started, attempts, lastTeamId, lastAt }
+```
+
+`savedSummary` returns `null` for an event with no attempts, which is what collapses that case into
+"nothing saved" (§4.5). `setupGate` reads `diagnosis.links` — it does not re-measure anything.
+
+### 4.12 The snapshot
+
+**Nothing on SETUP reaches the audience window**, for the same reason as §3.11: there is no event
+yet to describe. The audience holds ATTRACT (audience §3), which is the correct pre-event screen and
+is what the room should be looking at while the operator is at the mat.
+
+The first snapshot of the session is published by the action taken: **Reanudar** publishes the
+resumed standings so a reopened audience window catches up, and **Empezar evento nuevo** publishes
+an empty event.
+
+### 4.13 What this changes in SIGNAL CHECK
+
+Two amendments to an approved screen, both small and both improvements to it:
+
+1. **§3.2 gains the `waiting` state** (§4.3). SIGNAL CHECK reaches it in one case — opened before
+   the mat has ever been connected — where it currently shows red for something nobody has attempted
+   yet.
+2. **§3.3's "MICRÓFONO, not connected" row splits in two.** `CRONÓMETRO SIN CONECTAR` keeps the
+   connectable case and loses its red and its `✕`. The refused case — a second operator window,
+   which never takes the microphone (engine plan decision 8) — gets its own red row, because there
+   connecting is not pending, it is impossible:
+
+| First broken link | Line | Sentence |
+|---|---|---|
+| MICRÓFONO, refused | **OTRA VENTANA TIENE EL MANDO** | Ya hay una ventana de operador abierta. Cierra esta y vuelve a la otra. |
+
+   §3.13's row for a second operator window points here instead of at `CRONÓMETRO SIN CONECTAR`.
+
+### 4.14 Requirements for other screens
+
+1. **OPERATOR PANEL (screen 10):** it carries the device picker, because SETUP is one-way (§4.1).
+   This is the same requirement the roadmap's microphone risk already records and that §3.12.3
+   restates; SETUP is now the reason it is not optional.
+2. **SIGNAL CHECK (screen 8):** opened from SETUP, `S` and `Esc` return to SETUP, not to an event.
+   This is a third entry in §3.1's table, and it is the only one where there is no phase to restore.
+
+### 4.15 Edge cases
+
+| Case | Behaviour |
+|---|---|
+| Permission denied | MICRÓFONO **red**, `SIN MICRÓFONO` (§3.3). A real fault: the fourth state does not apply |
+| A second operator window | MICRÓFONO red, `OTRA VENTANA TIENE EL MANDO` (§4.13). Both actions are gated |
+| Saved event with zero attempts | Counts as nothing saved: no Reanudar button, no typed confirm (§4.5) |
+| Device changed at 5 of 6 | The ticks reset (§3.4) and the fresh gate closes again. Correct: the test belongs to the device that produced it |
+| Cable pulled after 6 of 6 | PAQUETES breaks, the fresh gate closes, the ticks **stay**. Reconnect and it reopens without retesting |
+| Mock mode | Fresh needs no typed confirm; the event block is prefixed `Ensayo ·`; the test and the chain work exactly as on a real mat (§3.1) |
+| Stored device is gone | The browser's default is opened and the picker shows what was actually opened (§4.7) |
+| Window smaller than 1280 × 800 | The page scrolls. Nothing shrinks (§2.2) |
+| `prefers-reduced-motion` | No change. There is no motion on this screen (§2.3) |
+
+### 4.16 Testing
+
+**Pure, `node --test`:**
+
+- `setupGate`: resume enabled on any event with ≥ 1 attempt and disabled on zero; fresh gated until
+  MICRÓFONO, SONIDO and PAQUETES are good **and** the test is 6 of 6; fresh's `confirm` is `'typed'`
+  on a real driver and `'none'` on the mock; `count` equals the saved attempt count.
+- `savedSummary`: `null` for zero attempts; `started` matches `startedCount(event, null)`.
+- `diagnose`: MICRÓFONO is `waiting` when not started and permission is not denied; `bad` when
+  denied; `bad` with the refused verdict when another window holds the lock.
+
+**Browser smoke** (`npm run smoke`): SETUP is the first screen on load; `Enter` presses Conectar;
+with the mock driver the chain reaches all-good and the test reaches 6 of 6, at which point
+`Empezar evento nuevo` becomes available and clears without a typed confirm; `S` opens SIGNAL CHECK
+and returns to SETUP.
+
+---
+
+## 5. Changes to the implementation plans
 
 The engine plan (`plans/2026-09-18-tournament-engine.md`) deferred "the signal-check screen and its
 `S` key (screen 8)" to a later plan, and that still holds — the screen itself, its two core modules
@@ -474,5 +767,41 @@ that can use it. The debug view is unaffected either way, and stays until screen
 **The screen's plan, `plans/2026-09-19-signal-check.md`** (written 2026-09-19): the three core
 modules, `css/operator.css` with §2's tokens, `js/ui/signal-check.js`, the seam in the operator
 window, and the browser checks that prove the bench. It runs after the engine plan and is
-independent of the audience screens plans. SETUP and the OPERATOR PANEL get their own plan once they
-are designed.
+independent of the audience screens plans. The OPERATOR PANEL gets its own plan once it is designed.
+
+### 5.1 What SETUP (§4) adds, written 2026-09-19
+
+**The signal-check plan** (`plans/2026-09-19-signal-check.md`) is amended, because SETUP and SIGNAL
+CHECK share `diagnose` and neither can hold a private copy of it:
+
+1. **Task 2 (the diagnosis): a fourth status, `waiting`.** MICRÓFONO returns it when the driver has
+   never been started and permission is not `denied` (§4.3). It is not `bad`, so it does not break
+   the chain and everything after it stays `unknown` for the ordinary reason rather than the
+   first-broken-link reason.
+2. **Task 2: `diagnose` learns whether connecting is possible.** A second operator window cannot
+   take the microphone, so its MICRÓFONO is `bad` with the new verdict **OTRA VENTANA TIENE EL
+   MANDO** (§4.13), not `waiting`. This is the one distinction that keeps red meaning "wrong"
+   rather than "not yet".
+3. **Task 5 (the screen): the `waiting` dot** — an empty dot with a solid 1.5px white ring, beside
+   the existing filled, red and dashed ones.
+
+**The operator screens plan (screens 9–10)**, not yet written, carries SETUP itself: one new pure
+module `js/core/setup-gate.js` (§4.11), the view, and the routing that makes SETUP the first screen
+on load and one-way out of (§4.1).
+
+**The engine plan needs no amendment for the event block.** `savedSummary` (§4.11) reads
+`event.attempts.length`, `startedCount(event, null)` and `at` on the last attempt — all three are
+already written by that plan (Tasks 5 and 14).
+
+**Two things to confirm against the engine as built**, rather than assumed:
+
+- **Task 13 (the real driver): "never started" must be distinguishable from "started and failed."**
+  The `waiting` state depends on it. Engine decision 12 already has the driver checking
+  `navigator.permissions` *after* it starts, which covers the failed case but says nothing about the
+  unstarted one.
+- **Task 15 (window sync): whether this window holds the operator lock must be readable by the UI.**
+  The **OTRA VENTANA TIENE EL MANDO** verdict needs it. Decision 8 establishes the Web Lock; what is
+  unconfirmed is whether its outcome is exposed rather than only enforced.
+
+If either is missing, it is a small addition to the engine plan of the same kind as the four SIGNAL
+CHECK asked for above — not a redesign of this screen.
