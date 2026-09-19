@@ -1,7 +1,7 @@
 # Tournament Display — UI Design
 
 **Date:** 2026-09-16
-**Status:** In progress — written screen by screen. **ATTRACT**, **STANDBY**, **ARMED**, **RUNNING** and **PENDING** are approved; the other five screens are not yet designed
+**Status:** In progress — written screen by screen. **ATTRACT**, **STANDBY**, **ARMED**, **RUNNING**, **PENDING** and **RESULTS** are approved; the other four screens are not yet designed
 **Scope:** Audience-window screens: layout, copy, visual values, and the data each screen needs from the core
 **Companion spec:** [`2026-09-15-tournament-display-system-design.md`](2026-09-15-tournament-display-system-design.md) (architecture, run loop, scoring, persistence). This is the `tournament-display-ui-design` spec its §13 defers to.
 
@@ -26,11 +26,19 @@ radius introduced during STANDBY was converted to `cqw` for this reason (§2.2).
 | 3 ARMED | ✅ Approved | **`armed-04-final.html`** (clock size superseded, §5.9) |
 | 4 RUNNING | ✅ Approved | **`running-06-final.html`** |
 | 5 PENDING | ✅ Approved | **`pending-16-final.html`**, with the screen changes in `pending-13-attract-final.html`, `pending-09-best.html` and `standby-11-board-fill.html` (§2.7) |
-| 6–10 | Not yet designed | — |
+| 6 RESULTS | ✅ Approved | **`results-05-paws.html`** (the sequence, stage C) and **`results-04-kitty-above.html`** (the still) |
+| 7–10 | Not yet designed | — |
 
 PENDING's design also changed the shared system (§2.2 motion, §2.5 maze, §2.7 screen changes) and
 STANDBY's standings (§4.9). §9 lists what that means for the two implementation plans already
 written.
+
+RESULTS added a mascot asset (§2.4), a *results* layout family and four screen changes (§2.7), and one
+more screen with a live maze (§2.5). It needs no amendment to either plan (§9).
+
+The screens are §3 to §8, and §9 stays where it is because both plans cite it by number. The next
+screen, **NO SIGNAL** (screen 7), starts at §10. It follows the motion signature (§2.2), the
+screen-change rule (§2.7), and one requirement RESULTS set for it (§8.9).
 
 ---
 
@@ -49,8 +57,8 @@ plus exactly one new value (locked decision 10).
 | Ground | `--bg-deep #02010c` | site token |
 | Dividers, plate border | `--violet-deep #231f66` | site token |
 | Labels, secondary text, rank numbers, ARMED's waiting countdown | `--violet #aba6f7` | site token |
-| Leader row | `--gold-text #ffea95` | site token |
-| Mascot glow | `--red #EE2737` at 30% | site token |
+| Leader row, and RESULTS' winning time | `--gold-text #ffea95` | site token |
+| Mascot glow (the band's kitty and RESULTS') | `--red #EE2737` at 30% | site token |
 | RUNNING's clock and status line past the cutoff, and PENDING's review of such a time | `--red #EE2737` | site token |
 | Empty standings slot: dashed divider and rank number | `rgba(171,166,247,.45)` | `--violet` at 45% |
 | Plate fill | `#f7f7f7` | site literal (`--grad-lavender`, `sections.css`) |
@@ -125,10 +133,13 @@ plus exactly one new value (locked decision 10).
   - **`--t-short`:** the clock's colour changes in PENDING, and the verdict's tag entering and
     leaving (§7.2).
   - **`--t-step`:** the gap between the +2 ticks, the wait before the standings update, and
-    ATTRACT's plates fading out (§2.7, §7.2).
-  - **`--t-long`:** the redo rewind (§7.2), and every screen change and standings update (§2.7).
+    ATTRACT's plates fading out (§2.7, §7.2). On the way to RESULTS: ATTRACT's face, tagline and
+    footer fading out, RESULTS' times fading in, and the kitty's paws coming over the edge (§8.5).
+  - **`--t-long`:** the redo rewind (§7.2), every screen change and standings update (§2.7), and
+    RESULTS' kitty climbing up from behind the winner's plate (§8.5).
   - **`prefers-reduced-motion: reduce`** turns all of it into cuts. Screen changes and standings
-    updates happen at once, and a verdict shows its landed frame straight away (§7.2).
+    updates happen at once, a verdict shows its landed frame straight away (§7.2), and RESULTS
+    arrives with its times and kitty already in place (§8.5).
 
 ### 2.3 University plate
 
@@ -157,11 +168,16 @@ edge, offset by `0.136 × 61.83/68.14 = 0.1234 × width`.
   from `1bbe2b4` as `assets/rootkitty-face-attract.svg` (decided 2026-09-18, §3.4). The new crop is
   the band mascot on STANDBY and ARMED.
 - This supersedes system design §11, which lists `rootkitty-face.svg` as unused.
+- **`assets/rootkitty-from-above.png`** (added 2026-09-19, for RESULTS §8.4) is RootKitty peeking
+  over an edge with its paws hanging over it: **1200 × 683**, RGBA. The head's flat bottom is row
+  **618**, and the paws reach row 681, so **9.52%** of the image, `(683 − 618) / 683`, is below the
+  edge. It is dark, with a black outline and no light border, so it needs the band kitty's red glow
+  on this ground. At 515 KB it is loaded from disk, so its size costs nothing at the venue.
 
 ### 2.5 Maze
 
 `vendor/hero-maze3d.js` renders into a full-bleed canvas at the bottom of the stack. It runs live on
-ATTRACT, STANDBY and ARMED, and is frozen from the moment the solve starts (locked decision 8) until
+ATTRACT, STANDBY, ARMED and RESULTS, and is frozen from the moment the solve starts (locked decision 8) until
 the screen leaves PENDING. On ARMED that was a choice: it keeps moving through inspection and freezes
 the moment the solve starts. It stays frozen through PENDING's review and its verdict, and resumes
 with the screen change to Mezcla or Resultado (§7.1), so nothing moves behind the verdict. The rule
@@ -172,12 +188,14 @@ run per page (it looks up `#hero-canvas` by id) until the `createMaze({canvas})`
 
 Spanish throughout.
 
-- **DNF** is the audience word for a single attempt with no valid time (ARMED §5.2, PENDING §7.2,
-  and RESULTS when it is designed).
+- **DNF** is the audience word for a single attempt with no valid time (ARMED §5.2, PENDING §7.2).
+  RESULTS shows no single attempts, so it never uses it.
 - PENDING's status-line wording is in §7.3. It was chosen to be easy to change later, so each
   string lives in one place in the view code.
 - **`—` with SIN TIEMPO VÁLIDO** is for a university with no valid time at all (§4.2, locked
-  decision 4).
+  decision 4). RESULTS shows the `—` alone, where the time goes (§8.6).
+- **NO PARTICIPÓ** is for a university that never competed, and appears only on RESULTS (§8.6). It
+  is not `—`, which always means "competed, no valid time".
 
 ### 2.7 Screen changes
 
@@ -195,9 +213,10 @@ next university's Mezcla, the two plates crossfade in place instead of one movin
 
 | Family | Screens |
 |---|---|
-| attract | ATTRACT |
+| attract | ATTRACT, including its bridge to RESULTS (§8.2) |
 | standby | Resultado, Mezcla |
 | solo | ARMED, RUNNING, PENDING (the review and the verdict) |
+| results | RESULTS |
 
 A screen change runs when the family changes, or, within *standby*, when the screen (Resultado or
 Mezcla) or the featured university changes. Within *solo* it never runs. The mat drives those
@@ -208,8 +227,8 @@ which goes straight to ARMED.
 
 | Element | Name | Where it appears |
 |---|---|---|
-| CTF logo | `logo` | ATTRACT's hero (30cqw wide), every header (3.2cqw tall) |
-| A university's plate | `plate-<teamId>` | ATTRACT's grid (**only the called university's**, see below), Resultado and Mezcla (22cqw), solo (13cqw) |
+| CTF logo | `logo` | ATTRACT's hero (30cqw wide), every header (3.2cqw tall), including RESULTS' |
+| A university's plate | `plate-<teamId>` | ATTRACT's grid (**only the called university's**, see below), Resultado and Mezcla (22cqw), solo (13cqw), RESULTS (22, 15 or 12.7cqw) |
 | Participant name | `name-<teamId>` | Resultado's and Mezcla's name line, solo's second who line |
 | Divider | `rule` | the left edge of Resultado's and Mezcla's figure block, and of solo's text block |
 | Section label | `label` | RESULTADO / A CONTINUACIÓN |
@@ -219,11 +238,19 @@ which goes straight to ARMED.
 | The clock, as the best time | `time` | PENDING's clock and Resultado's MEJOR TIEMPO figure, **only when the decided attempt set the best time** (§7.2) |
 | Band | `band` | every screen except ATTRACT |
 | A standings row | `standing-name-<teamId>`, `standing-time-<teamId>` | the standings column |
-| ATTRACT's plates and footer | `attract-plates`, `attract-footer` | ATTRACT, when it leaves |
+| ATTRACT's plates and footer | `attract-plates`, `attract-footer` | ATTRACT, when it leaves, and when the bridge to RESULTS arrives (§8.2) |
+| ATTRACT's face and tagline | `attract-face`, `attract-tag` | ATTRACT's bridge, when it leaves for RESULTS |
 
 On ATTRACT, only the plate of the university being called carries `plate-<teamId>`. The other
 twelve stay unnamed inside `attract-plates`, so they move with the grid. A named plate would be
 pulled out of the grid and fade on its own.
+
+**The bridge to RESULTS is the one exception** (§8.2). On the way in, the rule above holds: only the
+plate that was on screen before `F` is named, the one on Resultado or Mezcla. On the way out, every
+plate carries its own `plate-<teamId>` and `attract-plates` is not used, so each plate moves to its
+own place on RESULTS. The names are set on ATTRACT's DOM just before that change starts, because the
+old screen is captured when it starts. That is still the rule: each plate is the same element on
+both screens.
 
 **Markup this needs.** A named element must be one box, so each is an element of its own, and
 inline pieces are `inline-block`:
@@ -233,17 +260,29 @@ inline pieces are `inline-block`:
 - PENDING's digits are one element, apart from the verdict's tag (§7.2).
 
 **Entering and leaving.** By default an element that exists only on the old screen fades out, and
-one that exists only on the new screen fades in, over `--t-long`. Two exceptions, both on ATTRACT →
-Mezcla:
+one that exists only on the new screen fades in, over `--t-long`. Two exceptions, both made for
+ATTRACT → Mezcla:
 - **The band rises** from the stage's bottom edge: `translateY(100%)` → `0` over `--t-long`, with no
   fade, clipped to its own box (`overflow: clip` on its group and image pair). It enters this way
-  only when it has no old counterpart, `::view-transition-new(band):only-child`. On every other
-  change it exists on both screens and stays put.
+  only when it has no old counterpart, `::view-transition-new(band):only-child`, which is also true
+  of RESULTS → Mezcla and RESULTS → PENDING, since RESULTS has no band. When it has an old
+  counterpart, it stays put.
 - **The plates and the footer are pushed up** by the band's height as it rises: they move
   `10.95cqw` up over `--t-long`, and fade out over the first `--t-step`:
   `@keyframes { 50% { opacity: 0 } to { opacity: 0; transform: translateY(calc(-.1095 * var(--stage-w))) } }`.
   View-transition pseudo-elements have no container, so `cqw` cannot reach them. `--stage-w` is
   the stage's own width expression, `min(100vw, calc(100vh * 16 / 9))`, set on `:root`.
+
+The bridge to RESULTS runs both of these in reverse on its way in, and fades on its way out (§8.2):
+- **The band sinks** to the stage's bottom edge: `translateY(0)` → `100%` over `--t-long`, with no
+  fade and clipped to its own box, `::view-transition-old(band):only-child`.
+- **The plates and the footer come down** by the band's height as it sinks: from `10.95cqw` up to
+  their place over `--t-long`, fading in over the last `--t-step`:
+  `@keyframes { from { opacity: 0; transform: translateY(calc(-.1095 * var(--stage-w))) } 50% { opacity: 0 } }`,
+  on `::view-transition-new(attract-plates):only-child` and `::view-transition-new(attract-footer):only-child`.
+- **On the way out, ATTRACT's face, tagline and footer fade** over `--t-step`, on
+  `::view-transition-old(attract-face)`, `(attract-tag)` and `(attract-footer):only-child`, while the
+  plates move over `--t-long`.
 
 **The changes, one by one:**
 
@@ -258,6 +297,10 @@ Mezcla:
 | Mezcla → Mezcla | ←/→ | as Resultado → Mezcla |
 | Mezcla or Resultado → PENDING | U | the same moves, in reverse. The maze freezes (§2.5) |
 | The verdict → ARMED | a mat reset during the verdict | nothing (same family, instant) |
+| Resultado or Mezcla → ATTRACT, the bridge | F (§8.2) | ATTRACT → Mezcla in reverse: the logo grows back into the hero, the plate on screen returns to its grid slot, the band sinks, and the grid and footer come down with it |
+| ATTRACT → RESULTS | the bridge ends, `RESULTS_INTRO_MS` after F | every plate moves to its place at once; the logo shrinks into the header; the face, tagline and footer fade over `--t-step` |
+| RESULTS → Mezcla | N or ←/→, while a university has attempts left | the called university's plate moves to Mezcla's and the band rises; the rest fades |
+| RESULTS → PENDING | U | the last attempt's plate moves to solo's and the band rises; the rest fades. The maze freezes (§2.5) |
 
 **Standings updates.** When the standings change while a *standby* screen is up, the update runs as
 its own transition over `--t-long`. Each university's name and time move to their new slot by
@@ -1128,7 +1171,8 @@ These came up while designing PENDING. The screens themselves are not designed h
    `R` redo. During the verdict, the panel should show what the room is seeing, and that the next
    scramble is ready. A mat reset during the verdict ends it (§7.8).
 2. **RESULTS (screen 6):** follows §2.7. Whether RESULTS reuses the idea that the time moves into
-   its place is its own question.
+   its place is its own question. **Resolved in §8.2:** the plates move into their places instead,
+   by identity, through ATTRACT, and the times fade in once the plates have landed.
 3. **NO SIGNAL (screen 7):** it takes over during the review or the verdict like anywhere else. The
    verdict's 3 s keep running in the core, so when the signal returns, whatever is current is shown.
 
@@ -1196,10 +1240,330 @@ within the *solo* family, and every name §2.7 lists for a change exists on both
 
 ---
 
-## 8. Open across screens
+## 8. Screen 6 — RESULTS
 
-- **Screens 6–10**, in roadmap order. Next up: **RESULTS** (the podium and all thirteen). It follows
-  the motion signature (§2.2) and the screen-change rule (§2.7).
+**Purpose:** the final standings, once the event is over. Each participant's prize is a CTF flag
+that the organiser sends them privately, and **the flag depends on the place**. So RESULTS has no
+prize-giving to accompany: it is a **closing board** that goes up on the operator's `F` and stays
+until they act again, and every place on it counts. It never shows a flag.
+**Mockups:** **`results-05-paws.html`** (the whole sequence, live; stage C is the decision) and
+**`results-04-kitty-above.html`** (the still, section 1). The history runs through
+`results-01-layout.html` (three layouts, C chosen), `results-02-attract-to-results.html` (the
+sequence; A, every plate at once, chosen), `results-03-mascot.html` (where the mascot goes: over the
+winner, with a new asset) and `results-04-kitty-above.html` (the asset; the climb preferred). They
+load the same mockup-only files as STANDBY (§4), plus `rootkitty-from-above.png`, a copy of the
+asset. The live ones need the View Transitions API. The layouts in `results-01` to `results-03`
+have 13.4cqw grid plates, superseded by 12.7cqw (§8.3); this spec wins (§1).
+
+### 8.1 Decisions
+
+Settled in words before any mockup:
+
+1. **A closing board, not a reveal.** It arrives in one sequence and stays up. STANDBY shows the
+   standings all evening, so by the end the order is no secret. A reveal paced by the operator's
+   keys, and a timed one, were declined.
+2. **Every place counts.** The flag depends on the place, so all thirteen are first-class and must
+   read from the back of the room.
+3. **Best time only.** One time per university, as on STANDBY's standings. Showing all three
+   attempts, which would let each participant check the tie-break, was declined in favour of a calmer
+   screen with larger type. The export keeps every attempt (system design §7).
+4. **`F`, a key of its own.** An absent university must not stop the event from ending, and `N`
+   can't end it: once the others are done it keeps coming back to the absent one (engine plan
+   decision 5). `N` from the last Resultado, and RESULTS appearing on its own after the last verdict,
+   were declined. `F` also answers "start fresh" on the operator window's resume prompt (engine plan
+   Task 17). That prompt runs before the event and takes no other key, so the two never meet.
+
+### 8.2 The sequence
+
+`F` in STANDBY or SCRAMBLE (Resultado, or Mezcla, or ATTRACT before anyone has finished) moves the
+phase to **RESULTS**. The audience sees this, timed from the key:
+
+| From `F` | Screen | What happens |
+|---|---|---|
+| 0 | → ATTRACT, the **bridge** | ATTRACT → Mezcla in reverse (§2.7): the logo grows back into the hero, the plate on screen returns to its slot in the grid, the band sinks, and the grid and footer come down with it. The footer reads **Resultados finales** |
+| 800 ms | ATTRACT holds | Nothing moves but the maze and the logo's pulse (§3.2) |
+| 2400 ms | → RESULTS | Every plate moves from the grid to its place at once, over `--t-long`. The logo shrinks into the header. The face, tagline and footer fade over `--t-step` |
+| 3200 ms (the change + 800) | RESULTS | The plates have landed. The labels, places and times fade in over `--t-step`, and the kitty climbs up from behind the winner's plate over `--t-long` (§8.5) |
+| 4000 ms (the change + 1600) | RESULTS | The kitty's paws come over the plate's edge, over `--t-step` |
+| 4400 ms (the change + 2000) | RESULTS | Everything is in place |
+
+- **Why the bridge.** The event opens on thirteen plates in roster order and closes on the same
+  thirteen in finishing order, and the room watches one become the other.
+- **The hold, 1600 ms, is two `--t-long`.** With the change into ATTRACT, the bridge lasts
+  `RESULTS_INTRO_MS` = 2400 ms (§8.7).
+- **All thirteen move together.** Places 4–13 first and the podium after, and a cascade from 13th up
+  to 1st, were compared live and declined (`results-02`).
+- **The times, the kitty and the paws animate only when RESULTS arrives from the bridge by a screen
+  change.** An audience window that did not see the bridge shows the finished frame, as a verdict
+  does (§7.2). Under `prefers-reduced-motion`, each change is a cut, the timing stays, and RESULTS
+  arrives finished.
+
+**Leaving RESULTS.** RESULTS stays up until the operator acts. There is no timeout.
+- **`U`** takes back the last attempt and reopens its PENDING, as everywhere (engine plan decision
+  3). The change is RESULTS → PENDING (§2.7).
+- **`N`**, **`←`/`→`** call a university that still has attempts, such as a latecomer, and show its
+  Mezcla (RESULTS → Mezcla, §2.7). When every university is done they do nothing, as today.
+- **The mat is ignored**, since there is no competitor to arm. **`F` again** does nothing: the
+  sequence doesn't replay.
+
+### 8.3 Layout
+
+```
+┌──────────────────────────────────────────────────────────────┐  header, as STANDBY
+│ [CTF logo]                              RESULTADOS FINALES   │
+├──────────────────────────────────────────────────────────────┤
+│                           (kitty)                            │
+│                ┌───────┐ ┌─────────┐ ┌───────┐               │
+│                │  2nd  │ │   1st   │ │  3rd  │               │  podium: 2nd, 1st, 3rd
+│                └───────┘ │         │ └───────┘               │
+│             SEGUNDO LUGAR└─────────┘TERCER LUGAR             │
+│                1:44.18  PRIMER LUGAR 1:55.88                 │
+│                           1:24.02                            │
+│        ──────────────────────────────────────────────        │
+│        [plate] [plate] [plate] [plate] [plate]               │  grid: places 4–13
+│        4  2:07.31  5  2:19.04  …                             │
+│        [plate] [plate] [plate] [plate] [plate]               │
+│        9  3:40.10  …                      12  4:58.66     —  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Frame.** The live maze (§2.5) under STANDBY's veil (§4.2), and STANDBY's header with the logo on
+the left and **RESULTADOS FINALES** on the right, in `--violet`, `.14em`. **There is no band.**
+Thirteen places don't fit above it (the body is 39.02cqw with the band and 49.97cqw without), and
+RESULTS has no scramble for it to hold.
+
+**Body.** A flex column, centred on both axes, padding `.9cqw 3cqw 1.9cqw`:
+
+1. **The podium.** A flex row in podium order, **2nd, 1st, 3rd**, `align-items: flex-end`,
+   `gap 4.4cqw`. Each step is a column, centred:
+   - the **plate** (§2.3): **22cqw** for 1st, with STANDBY's padding `1.3cqw 1.9cqw`, and **15cqw**
+     for 2nd and 3rd, with `.9cqw 1.3cqw`;
+   - the **label**, `--fs-label`, `.24em`, `--violet`, `margin-top 1.1cqw`: PRIMER LUGAR,
+     SEGUNDO LUGAR or TERCER LUGAR (§8.6);
+   - the **time**, 800, `line-height 1`, `-.01em`, tabular, `margin-top .4cqw`: `--fs-hero` in
+     `--gold-text` for 1st, and `--fs-lead` in `#fff` for 2nd and 3rd.
+
+   The 1st step also has `padding-top: calc(11cqw * 618 / 1200)` (5.67cqw), the kitty's height
+   above the plate's edge (§8.4). Its plate is `position: relative; z-index: 1`.
+2. **The grid**, places 4 to 13: `grid-template-columns: repeat(5, 12.7cqw)`, `gap 1.2cqw 2.2cqw`,
+   `margin-top 2.2cqw`, `padding-top 1.6cqw`, `border-top 1px --violet-deep`. **12.7cqw is ATTRACT's
+   own plate width** (§3.3), so these ten plates change place but not size on the way in. Each cell
+   holds:
+   - the plate, at `width 100%`, with ATTRACT's padding `.75cqw 1.1cqw`;
+   - under it, `margin-top .55cqw`, one `--fs-lead` line, `justify-content: space-between`,
+     `align-items: baseline`: the **place** in `--violet` 700 on the left, and the **time** in `#fff`
+     500, tabular, on the right.
+
+**Order.** `finalStandings` (§8.8) in its own order: ranked by position, then all-DNF, then never
+competed (§4.3). Rows 1–3 are the podium and rows 4–13 the grid. **The layout is built for thirteen**,
+as ATTRACT's grid is (§3.3).
+
+**Colour.** `--gold-text` only for 1st, the leader's colour as on STANDBY. There is no silver and no
+bronze: the palette has neither, and the podium stands out by size, weight and position alone. No
+`--go`, no `--red` (except the kitty's glow), no new value.
+
+**Fit**, measured in Chrome with roc-grotesk loaded:
+- the header ends at 6.26cqw and the podium starts at 7.63cqw;
+- the grid ends at 53.96cqw, 2.29cqw from the stage's bottom edge;
+- the longest grid line, `12  4:58.66`, leaves 2.24cqw between the place and the time. An accepted
+  time past ten minutes still fits: `10:02.15` and `59:59.99` leave 0.91cqw.
+
+### 8.4 The kitty
+
+`assets/rootkitty-from-above.png` (§2.4) looks over the top of the winner's plate, with its paws
+hanging over the front of it.
+
+```css
+.kit     { position:absolute; top:0; left:50%; width:11cqw; transform:translateX(-50%); z-index:2;
+           filter:drop-shadow(0 0 2.4cqw rgba(238,39,55,.3)); }
+.kit img { width:100%; height:auto; aspect-ratio:1200/683; display:block; opacity:.9; }
+```
+
+- **11cqw is the band kitty's width** (§4.2), so there is no new mascot size. Its opacity and glow
+  are the band kitty's too.
+- **The head's flat bottom sits on the plate's top edge:** the 1st step's padding-top is exactly
+  `11cqw × 618 / 1200`. The kitty is 6.26cqw tall, 5.67cqw of it above the edge, and centred on the
+  22cqw plate (44.5–55.5cqw across a plate at 39–61cqw), so the paws land on the plate's flat top,
+  inside its rounded corners. Measured in Chrome, the head's bottom is 0.01cqw from the edge.
+- **In front of the plate**, `z-index: 2` over the plate's 1. The climb is drawn with a clip, not
+  by putting the kitty behind the plate (§8.5).
+- **The glow is on the wrapper**, so it follows whatever the clip leaves visible. A glow on the image
+  would be cut off at its box.
+- **`aspect-ratio: 1200/683` is required.** Without it, the box is 0 tall until the image has
+  loaded, and so is the climb's `100%`: on a slow first load the kitty would have nothing to climb
+  from. Browser testing found this.
+
+### 8.5 The kitty's arrival
+
+The kitty arrives only after the winner's plate has landed. If it came with the screen change, it
+would sit over an empty spot while the plate was still moving. Two rules on the image:
+
+```css
+.arriving .kit img {
+  animation: climb var(--t-long) var(--ease) 800ms both,
+             paws  var(--t-step) var(--ease) 1600ms forwards;
+}
+@keyframes climb { from { translate:0 100%; clip-path:inset(0 0 109.52% 0) }
+                   to   { translate:0 0;    clip-path:inset(0 0 9.52% 0) } }
+@keyframes paws  { from { clip-path:inset(0 0 9.52% 0) } to { clip-path:inset(0) } }
+```
+
+- **The climb** (+800 to +1600 ms from the change): the kitty rises its own height, from just below
+  the plate's edge to its place. The clip hides everything below the edge, so it looks as if it's
+  climbing out from behind the plate. While the image is `y%` of its height below its place, the
+  edge is `(9.52 + y)%` of its height up from its bottom. The translate and the clip therefore change
+  together, in one keyframe rule on one curve, and the clip line stays on the edge. Measured with the
+  animation paused at five points, the visible bottom was 0.000cqw from the edge each time.
+- **The paws** (+1600 to +2000 ms): the clip opens past the edge, and the paws come over the front of
+  the plate, 0.6cqw down. Over `--t-step` it read as more natural than over `--t-short`, which was
+  compared live.
+- **9.52%** comes from the image (§2.4). It changes only if the asset does.
+- **The times**, the podium's labels and the grid's places fade in over `--t-step` from +800 ms:
+  `animation: fade-in var(--t-step) var(--ease) 800ms both`, from `opacity: 0`.
+- **`arriving`** is set by the audience view only when RESULTS comes from the bridge by a screen
+  change (§8.2). The 800 ms and 1600 ms are offsets from the change, one and two `--t-long`. Like
+  the verdict's +300 ms and +700 ms (§7.2), they are not durations, so the motion signature keeps
+  its three.
+- The fade was the alternative (`results-04`, `results-05` stage A), and the simpler one. The climb
+  was chosen once the paws could have their own move without a second asset.
+
+### 8.6 Wording
+
+| Where | Text |
+|---|---|
+| Header, right | **RESULTADOS FINALES** |
+| The bridge's footer, in place of *Comenzamos en breve* | **Resultados finales** |
+| Podium labels | **PRIMER LUGAR** · **SEGUNDO LUGAR** · **TERCER LUGAR** |
+| A university with no valid time (all DNF) | no place, and **`—`** where the time goes (§2.6, locked decision 4) |
+| A university that never competed | no place, and **NO PARTICIPÓ** where the time goes, in label style: `--fs-label`, `.24em`, `--violet`, regular weight. It measures 10.21cqw in a 12.7cqw cell |
+
+- **Participant names are not shown.** RESULTS is plates only, like the standings.
+- Each string is defined once in the view code, as PENDING's are (§7.3).
+
+### 8.7 Core
+
+Pure, in `js/core/`, tested with `node --test`.
+
+**Keymap.** `f` → the command `results`, next to `n`, `u` and the arrows. (The resume prompt's own
+`F` is handled apart from the keymap, §8.1.)
+
+**Run state** gains the phase **RESULTS** and `resultsAt: number | null`, which is not persisted:
+
+- **`results`** in STANDBY or SCRAMBLE → `phase: 'RESULTS'`, `resultsAt: at`, `lastDecision: null`,
+  and the attempt in progress dropped: `attemptNo`, `scramble` and `scrambleSvg` become `null`, as when
+  a university completes. `teamIndex` is kept. Anywhere else, including RESULTS, it is ignored.
+- **In RESULTS:** `N`, `←`/`→` and `U` act as they do in STANDBY, so RESULTS joins `IDLE_PHASES`
+  (engine plan Tasks 8 and 9), which only those three commands read. `N` takes the university at
+  `teamIndex` if it still has attempts, as from STANDBY, and otherwise moves on. Each of them clears
+  `resultsAt`. `Space`, `Esc`, the four decision keys and the mat are ignored.
+- **`U`** from RESULTS is the ordinary undo: it takes back the most recent attempt and reopens its
+  PENDING gate.
+
+**Constant.** `RESULTS_INTRO_MS = 800 + 1600`: the change into ATTRACT (`--t-long`) and the hold (two
+`--t-long`). A comment should tie it to the motion tokens, as with `STANDINGS_UPDATE_MS` (§7.5).
+
+**Timing without the mat.** The operator window re-publishes at `resultsAt + RESULTS_INTRO_MS`, as it
+does at the verdict's end (§7.5).
+
+**Audience view:**
+- `screenFor`: `phase === 'RESULTS'` → `'attract'` while `resultsIntro`, then `'results'`.
+- `familyOf('results')` is `'results'` (§2.7).
+- ATTRACT's footer reads *Resultados finales* while the phase is RESULTS (§8.6).
+- On the change into the bridge, the plate that was on screen before `F` carries its name: the
+  previous snapshot's `result.teamId` on Resultado, or `competitor.id` on Mezcla. On the change out,
+  every plate does (§2.7).
+- The maze runs (§2.5). `mazeFrozen` needs no change.
+
+### 8.8 Snapshot changes
+
+This extends §7.6. The audience window still holds no state of its own.
+
+```js
+{
+  phase,            // CHANGED: may be 'RESULTS'
+  competitor, attemptNo, displayMs, cutoffMs, scramble, scrambleSvg, signal, standings, result,
+  inspectionMs, hands, verdict, standingsBefore, teams,
+  finalStandings,   // NEW: standings(event), all rows, while phase is RESULTS; otherwise null
+  resultsIntro,     // NEW: phase === 'RESULTS' && now - resultsAt < RESULTS_INTRO_MS
+}
+```
+
+- `competitor` is `null` in RESULTS, as in STANDBY.
+- `finalStandings` is the full table from §4.3, `{ teamId, group, position, bestMs }` per row: ranked,
+  then unranked, then pending. The capped `standings` is unchanged.
+
+### 8.9 Requirements for other screens
+
+These came up while designing RESULTS. The screens themselves are not designed here.
+
+1. **NO SIGNAL (screen 7):** it must **not** take over RESULTS. By then the mat plays no part, and it
+   is likely to be unplugged as the event packs up, which would cover the final standings.
+2. **OPERATOR PANEL (screen 10):**
+   - list `F`;
+   - before and after `F`, say how many universities have not competed;
+   - keep the JSON and CSV export (system design §7) within reach while RESULTS is up, because the
+     export is how each flag gets matched to its place.
+
+### 8.10 Edge cases
+
+| Case | Behaviour |
+|---|---|
+| `F` from Mezcla | The same sequence. Mezcla's plate returns to its slot, and the band sinks with its scramble |
+| `F` during the last verdict | `lastDecision` is cleared, so the verdict ends at once, and the sequence starts from Resultado's layout |
+| `F` while universities have not competed | Allowed, so an absent university cannot block the end. Each shows NO PARTICIPÓ, after the all-DNF ones |
+| `F` on ATTRACT, before anyone has finished | The footer's words change in place, and after the hold every university shows NO PARTICIPÓ. Harmless, and the operator panel warns (§8.9) |
+| Fewer than three universities ranked | The podium still holds rows 1–3. A podium row with no valid time shows no label, no gold, and `—` or NO PARTICIPÓ where the time goes, as in the grid |
+| A tie | Positions are always distinct: ties break on the second-best time, then roster order (system design §6) |
+| `U` on RESULTS | PENDING reopens for the last attempt, and `resultsAt` is cleared. `F` again replays the whole sequence |
+| `N` with a latecomer still to compete | Mezcla for that university. The band rises (§2.7) |
+| `N` when every university is done | Nothing |
+| A mat reset on RESULTS | Ignored |
+| Operator window reloaded on RESULTS | The phase isn't persisted (system design §7), so Resume lands on Resultado. `F` again |
+| Audience window opened during the bridge | ATTRACT with *Resultados finales*, then the change to RESULTS as usual |
+| Audience window opened after the bridge | RESULTS finished, with no animation (§8.2) |
+| An accepted time of ten minutes or more | Fits: `59:59.99` leaves 0.91cqw in a grid cell (§8.3) |
+| `prefers-reduced-motion: reduce` | Cuts on the same timing, and RESULTS arrives finished |
+| Signal lost | RESULTS stays up (§8.9) |
+
+### 8.11 Testing
+
+**Core (`node --test`):**
+
+- **Keymap:** `f` and `F` → `results`.
+- **Run state:**
+  - `results` acts in STANDBY and SCRAMBLE, and is ignored in ARMED, RUNNING, PENDING and RESULTS;
+  - it sets `resultsAt`, clears `lastDecision`, and drops the attempt in progress;
+  - in RESULTS, the mat, `Space`, `Esc`, `2`, `D` and `R` change nothing;
+  - `U` in RESULTS reopens PENDING for the last attempt and clears `resultsAt`;
+  - `N` in RESULTS calls a university with attempts left, or does nothing when all are done.
+- **`buildSnapshot`:**
+  - `resultsIntro` is true at `resultsAt + 2399` and false at `+ 2400`;
+  - `finalStandings` has one row per team in RESULTS, and is `null` in every other phase;
+  - `competitor` is `null` in RESULTS.
+
+**Audience view (pure, `node --test`):**
+
+- `screenFor` gives `attract` during the intro and `results` after it; `familyOf('results')` is
+  `results`;
+- the podium holds rows 1–3 in the order 2nd, 1st, 3rd, and the grid rows 4–13;
+- `—` for an unranked row and NO PARTICIPÓ for a pending one, neither with a place;
+- gold only on a ranked 1st;
+- ATTRACT's footer reads *Resultados finales* in RESULTS and *Comenzamos en breve* otherwise;
+- `arriving` is set only for a change from the bridge.
+
+**Mock driver scenario:** a full event with one university absent, then `F` from its Mezcla.
+
+**Visual:** render RESULTS at 1920×1080 and compare it against `results-04-kitty-above.html`
+(section 1), and the sequence against `results-05-paws.html` (stage C). Then check the invariants:
+- all thirteen plates appear exactly once, and the grid's plates are 12.7cqw;
+- the kitty's head bottom is on the winner's plate's top edge;
+- no `--go`, no `--red` except the kitty's glow, and gold only on 1st;
+- the maze runs on the bridge and on RESULTS.
+
+**Screen changes (browser):**
+- a view transition runs on each of §2.7's four new changes;
+- on ATTRACT → RESULTS, every `plate-<teamId>` exists on both sides;
+- paused at points through the climb, the kitty's visible bottom stays on the plate's edge.
 
 ---
 
@@ -1245,3 +1609,15 @@ which has no `config/` folder.
 4. **Task 7** (the 1080p check): STANDBY's new invariants (§4.8), and the empty and part-filled
    standings against `standby-10-placeholder-rows.html`.
 5. **Spec coverage**, at the end: rows for §2.2's motion signature, §2.7 and §4.9.
+
+**RESULTS (§8, 2026-09-19) needs no amendment to either plan.** The engine plan leaves a RESULTS
+phase out by name ("Not in this plan"), and nothing either plan builds contradicts §8. The next
+screens plan, for RESULTS and NO SIGNAL, takes in all of RESULTS' work, the core included:
+- the `results` command and its key, the RESULTS phase, `resultsAt`, RESULTS in `IDLE_PHASES`, and
+  `RESULTS_INTRO_MS`, with the operator window's re-publish (§8.7);
+- `finalStandings` and `resultsIntro` in `buildSnapshot` (§8.8);
+- the view: RESULTS, the bridge's footer, the *results* family and the four new changes (§2.7), the
+  kitty (§8.4, §8.5), and `assets/rootkitty-from-above.png` in the audience window.
+
+Where that plan changes a file the first two plans create, such as `run-state.js`, `keymap.js`,
+`snapshot.js`, `audience-screens.js` or `audience.js`, it builds on them as written.

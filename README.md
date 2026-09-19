@@ -60,8 +60,8 @@ not ours to license in the first place.
 
 **Pentraze property, all rights reserved:**
 
-- `assets/rootkitty.svg`, `assets/rootkitty-face.svg`, `assets/rootkitty-costume.webp` — the
-  RootKitty mascot
+- `assets/rootkitty.svg`, `assets/rootkitty-face.svg`, `assets/rootkitty-costume.webp`,
+  `assets/rootkitty-from-above.png` — the RootKitty mascot
 - `assets/logo-ctf.svg` — the CTF Interuniversitario wordmark
 - `vendor/hero-maze3d.js` — the maze background, from the CTF Interuniversitario site
 
