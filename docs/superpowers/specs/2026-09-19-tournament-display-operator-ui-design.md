@@ -159,7 +159,7 @@ The verdict is a picture before it is a sentence: five links, left to right, eac
 |---|---|---|---|
 | 1 | MICRÓFONO | `Permitido` · `Sin permiso` · `Sin conectar` | the device's label, or `—` |
 | 2 | SONIDO | `−21 dB` | `entra señal` · `nada` |
-| 3 | PAQUETES | `10 / s` | `del cronómetro` · `hace 14 s el último` · `midiendo` |
+| 3 | PAQUETES | `10 / s` | `del cronómetro` · `hace 14 s el último` · `ninguno todavía` · `midiendo` |
 | 4 | SEÑAL | `Limpia` · `Con ruido` | `ruido 3 %` |
 | 5 | PRUEBA | `3 de 6` | `faltan 3` · `completa` |
 
@@ -167,8 +167,10 @@ The verdict is a picture before it is a sentence: five links, left to right, eac
 dot), and unknown (the unknown violet, a dashed empty dot).
 
 **The first broken link turns red, and everything after it is unknown.** A signal cannot be judged
-clean when no packets arrive, so PAQUETES failing puts SEÑAL and PRUEBA in the dashed state. PRUEBA
-is never red: it is a count, not a fault.
+clean when no packets arrive, so PAQUETES failing puts SEÑAL and PRUEBA in the dashed state. A link
+that goes unknown this way loses its reading, which no longer means anything — except PRUEBA, which
+keeps its count and reads `en pausa`, because how much of the mat has been proved is a fact about
+the mat, not about the signal. PRUEBA is never red: it is a count, not a fault.
 
 **How each reading is measured**, from the driver's `StackmatState` (system design §4):
 
@@ -347,14 +349,15 @@ Drawn at 1440 × 900 (§2.2). All four rows are full-bleed and separated by 1px 
 
 ### 3.10 Core
 
-Two pure modules, both under `node --test`, neither touching the DOM, audio or timers (system
+Three pure modules, all under `node --test`, none touching the DOM, audio or timers (system
 design §3, invariant 3).
 
 ```js
 // js/core/signal-health.js
-diagnose({ permission, connected, deviceLabel, packetTimes, lastState, openedAt, now })
-  → { links: [{ key, status, value, detail }], verdict: { key, line, sentence } }
+diagnose({ permission, connected, deviceLabel, packetTimes, lastState, test, openedAt, now })
+  → { links: [{ key, label, status, value, detail }], bad, measuring, verdict: { key, line, sentence } }
 // status ∈ 'ok' | 'bad' | 'unknown'; key ∈ 'mic' | 'sound' | 'packets' | 'signal' | 'test'
+matLine(lastState)             → the words in §3.5
 ```
 
 ```js
@@ -364,15 +367,27 @@ tickTest(test, matState)       → the next test
 missingItems(test)             → the labels still untested, in §3.4's order
 ```
 
+```js
+// js/core/sample.js — reading what getSample() hands back
+windowFor(bin, samplesPerBit)  → { start, length, triggered }   the window to draw (§3.6)
+lastPacketBytes(bytes)         → the last whole packet's characters, or null (§3.7)
+byteText(bytes)                → how they are written on screen
+```
+
 `packetTimes` is the timestamps of fresh states inside the window; the view keeps that array and
 trims it. `js/ui/signal-check.js` draws, and `js/ui/operator.js` routes the mat to the check while
 it is open (§4).
 
 ### 3.11 The snapshot
 
-**Unchanged. Nothing about this screen ever reaches the audience window.** While the check is open
-no snapshot is published, because no mat state reaches the reducer, so the audience holds its last
-one — which is exactly the design in §3.1.
+**Unchanged. Nothing about this screen ever reaches the audience window.** No mat state reaches the
+reducer while the check is open, so no snapshot follows from the mat and the audience holds the one
+it had — which is exactly the design in §3.1.
+
+The one exception is deliberate: a decision made just before the check opened has already scheduled
+two re-publishes, when its verdict ends and when the standings update (UI spec §7.5). Those are
+timers, not mat packets, so they still fire, and a verdict on the projector finishes on time instead
+of freezing mid-way.
 
 ### 3.12 Requirements for other screens
 
@@ -447,12 +462,17 @@ so that plan is amended, as it was for PENDING (audience §9).
    opens and closes the check, and dispatches `disarm` first when the phase is ARMED. The keymap
    returns it in every phase; the shell applies §3.1's table.
 4. **Task 12 (the mock driver): `getSample` synthesises a trace** instead of returning empty arrays,
-   reusing `test/helpers/stackmat-signal.js`'s `packetBits`, and each scripted packet is `fresh`.
-   Without this the check cannot be rehearsed on this machine at all.
-5. **Task 17 (the two windows): the routing seam.** `js/ui/operator.js` keeps one flag for the
-   check: while it is set, driver states go to the check instead of `dispatch`, and no snapshot is
-   published. The debug view is unaffected and stays until screen 10 replaces it.
+   and each scripted packet is `fresh`. Without this the check cannot be rehearsed on this machine
+   at all. The encoder it needs — a packet's bytes and those bytes as 1200-baud bits — joins
+   `js/drivers/scenarios.js`, beside the packet shape it already owns. It is deliberately **not**
+   shared with `test/helpers/stackmat-signal.js`: that helper is what feeds the real decoder in its
+   test, and if both sides of that test came from one encoder, the test would prove nothing.
+Task 17 needs no amendment: the routing seam — one flag in `js/ui/operator.js`, and the mat going
+to the check instead of to `dispatch` — belongs to the screen's own plan, which is the first thing
+that can use it. The debug view is unaffected either way, and stays until screen 10 replaces it.
 
-**Operator screens plan (not yet written):** `js/core/signal-health.js`, `js/core/mat-test.js`,
-`js/ui/signal-check.js`, `css/operator.css` with §2's tokens, and the screen in §3. It runs after
-the engine plan, and it is independent of the audience screens plans.
+**The screen's plan, `plans/2026-09-19-signal-check.md`** (written 2026-09-19): the three core
+modules, `css/operator.css` with §2's tokens, `js/ui/signal-check.js`, the seam in the operator
+window, and the browser checks that prove the bench. It runs after the engine plan and is
+independent of the audience screens plans. SETUP and the OPERATOR PANEL get their own plan once they
+are designed.

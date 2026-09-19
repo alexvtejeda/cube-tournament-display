@@ -31,6 +31,15 @@ scenarios (Task 12), and the operator window publishing again when the verdict e
 standings update (Task 17). `formatCutoff` (UI spec §6.4, RUNNING) joins Task 3. Task 2's generator
 now creates `config/`, which a fresh checkout does not have.
 
+**Amended again on 2026-09-19** for SIGNAL CHECK, the first operator screen (operator spec §4). The
+screen itself is built by `plans/2026-09-19-signal-check.md`; what it needs from this plan is a
+packet's bytes and bits, and `fresh` on every scripted state (Task 7), the `disarm` command
+(Task 9), `s` in the keymap (Task 10), a synthesised audio sample from the mock mat (Task 12), and
+`fresh` on the real driver's states (Task 13). That last one is a bug this plan would otherwise
+ship: the decoder re-emits its last state object when the line idles, and copying every state
+erases the only clue that a callback was not a new packet. Task 17 needs no change — the check's
+routing seam belongs to the screen's own plan.
+
 ---
 
 ## Scope
@@ -1102,7 +1111,9 @@ lines 281–283).
 ```js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HANDS_MS, SCENARIOS, handsDown, packet, sequence, startAfter, timing } from '../../js/drivers/scenarios.js';
+import {
+  HANDS_MS, SCENARIOS, handsDown, packet, packetBits, packetBytes, sequence, startAfter, timing,
+} from '../../js/drivers/scenarios.js';
 
 test('packet derives hands and green light from the header, as the decoder does', () => {
   assert.deepEqual([packet('L', 0).leftHand, packet('L', 0).rightHand], [true, false]);
@@ -1127,6 +1138,18 @@ test('handsDown lasts HANDS_MS and ends on the green light', () => {
 test('startAfter starts the timer exactly `ms` in', () => {
   const firstRunning = startAfter(10000).find((s) => s.state.running);
   assert.equal(firstRunning.t, 10000);
+});
+
+test('a packet is nine bytes: the header, five digits, a checksum, then \\n \\r', () => {
+  assert.deepEqual(packetBytes(packet('A', 0)), ['A', '0', '0', '0', '0', '0', '@', '\n', '\r']);
+  assert.deepEqual(packetBytes(packet('S', 6440)).slice(0, 6), ['S', '0', '0', '6', '4', '4']);
+});
+
+test('its bits frame every byte with a start and a stop bit', () => {
+  const bits = packetBits(packet('A', 0));
+  assert.equal(bits.length, packetBytes(packet('A', 0)).length * 10);
+  // 'A' is 0x41: a start bit, then 1 0 0 0 0 0 1 0 least significant first, then a stop bit.
+  assert.deepEqual(bits.slice(0, 10), [0, 1, 0, 0, 0, 0, 0, 1, 0, 1]);
 });
 
 test('every named scenario is sorted by time and ends with the mat on', () => {
@@ -1155,6 +1178,9 @@ export const PACKET_MS = 100;
 export function packet(signalHeader, time_milli, running = false) {
   return {
     on: true,
+    // A packet the decoder has just read. The real driver marks re-emissions of its last state
+    // false, which is how SIGNAL CHECK counts packets per second (operator spec §3.2).
+    fresh: true,
     running,
     time_milli,
     unit: 10,
@@ -1167,8 +1193,34 @@ export function packet(signalHeader, time_milli, running = false) {
   };
 }
 
-// The decoder reports a lost signal by re-emitting its last state with on = false.
-export const offline = (state) => ({ ...state, on: false });
+// The decoder reports a lost signal by re-emitting its last state with on = false. Nothing new was
+// read, so it is not fresh.
+export const offline = (state) => ({ ...state, on: false, fresh: false });
+
+// The bytes a StackMat sends for a state (system design §4): the header, the time as five digits,
+// a checksum, then \n \r. SIGNAL CHECK shows the last of them (operator spec §3.7), and the mock
+// driver turns them into the audio sample it draws.
+export function packetBytes({ signalHeader, time_milli }) {
+  const minutes = Math.floor(time_milli / 60000);
+  const seconds = String(Math.floor(time_milli / 1000) % 60).padStart(2, '0');
+  const centis = String(Math.floor(time_milli / 10) % 100).padStart(2, '0');
+  const digits = `${minutes}${seconds}${centis}`;
+  const checksum = String.fromCharCode(64 + [...digits].reduce((sum, digit) => sum + Number(digit), 0));
+  return [signalHeader, ...digits, checksum, '\n', '\r'];
+}
+
+// Those bytes at 1200 baud: a start bit, eight data bits least significant first, then a stop bit.
+// 1 is the idle level, the way the decoder's binarised sample holds it.
+export function packetBits(state) {
+  const bits = [];
+  for (const byte of packetBytes(state)) {
+    const code = byte.charCodeAt(0);
+    bits.push(0);
+    for (let i = 0; i < 8; i += 1) bits.push((code >> i) & 1);
+    bits.push(1);
+  }
+  return bits;
+}
 
 export function hold(state, ms) {
   return Array.from({ length: Math.round(ms / PACKET_MS) }, (_, i) => ({ t: i * PACKET_MS, state }));
@@ -1221,7 +1273,7 @@ export const SCENARIOS = {
 - [ ] **Step 4: Run the test**
 
 Run: `node --test test/drivers/scenarios.test.js`
-Expected: `ℹ pass 5`, `ℹ fail 0`.
+Expected: `ℹ pass 7`, `ℹ fail 0`.
 
 - [ ] **Step 5: Commit**
 
@@ -1733,6 +1785,26 @@ test('a second Space or an Esc during the verdict changes nothing', () => {
   assert.equal(reduce(decided, cmd('startInspection')), decided);
   assert.equal(reduce(decided, cmd('cancelInspection')), decided);
 });
+
+test('disarm steps ARMED back to its own scramble, and does nothing anywhere else', () => {
+  const armed = apply(
+    createState(config),
+    cmd('next'),
+    { type: 'scramble', seq: 1, scramble: "R U R'", svg: '<svg/>' },
+    mat(packet('I', 0)),
+    cmd('startInspection', 0),
+  );
+  assert.equal(armed.phase, 'ARMED');
+  const back = reduce(armed, cmd('disarm'));
+  assert.equal(back.phase, 'SCRAMBLE');
+  assert.equal(back.inspectionStartedAt, null);
+  assert.equal(back.scramble, "R U R'", 'the competitor has not solved yet: the scramble stands');
+  assert.equal(back.scrambleSeq, armed.scrambleSeq);
+  assert.equal(back.attemptNo, armed.attemptNo);
+  const standby = createState(config);
+  assert.equal(reduce(standby, cmd('disarm')), standby);
+  assert.equal(reduce(back, cmd('disarm')), back);
+});
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -1831,6 +1903,12 @@ function onCommand(state, command, at) {
         : state;
     case 'undo':
       return IDLE_PHASES.includes(phase) ? undo(state) : state;
+    case 'disarm':
+      // SIGNAL CHECK opening from ARMED (operator spec §3.1). ARMED is the one held screen that
+      // draws live mat data, so it steps back to the scramble already on screen rather than
+      // freezing into a lie on the projector. freshScramble is deliberately not used: the
+      // competitor has not solved yet and must not be handed a new scramble.
+      return phase === 'ARMED' ? { ...state, ...cleared(), phase: 'SCRAMBLE' } : state;
     default:
       return state;
   }
@@ -1899,7 +1977,7 @@ function undo(state) {
 - [ ] **Step 9: Run both run-state tests**
 
 Run: `node --test test/core/run-state.test.js test/core/run-state-decisions.test.js`
-Expected: `ℹ pass 39`, `ℹ fail 0`.
+Expected: `ℹ pass 40`, `ℹ fail 0`.
 
 - [ ] **Step 10: Commit**
 
@@ -1930,7 +2008,8 @@ test('Space accepts in PENDING and starts inspection anywhere else', () => {
 
 test('the system design keys map to their commands, in either case', () => {
   const cases = [['Escape', 'cancelInspection'], ['d', 'dnf'], ['D', 'dnf'], ['2', 'plus2'], ['r', 'redo'],
-    ['n', 'next'], ['N', 'next'], ['ArrowLeft', 'prevTeam'], ['ArrowRight', 'nextTeam'], ['u', 'undo']];
+    ['n', 'next'], ['N', 'next'], ['ArrowLeft', 'prevTeam'], ['ArrowRight', 'nextTeam'], ['u', 'undo'],
+    ['s', 'signalCheck'], ['S', 'signalCheck']];
   for (const [key, command] of cases) assert.equal(commandForKey(key, 'ARMED'), command, key);
 });
 
@@ -1958,6 +2037,9 @@ const KEYS = {
   ArrowLeft: 'prevTeam',
   ArrowRight: 'nextTeam',
   u: 'undo',
+  // Not a reducer command: the operator window opens and closes SIGNAL CHECK itself, and decides
+  // which phases allow it (operator spec §3.1). The reducer ignores it.
+  s: 'signalCheck',
 };
 
 // `key` is a KeyboardEvent.key. Space starts inspection in ARMED and accepts in PENDING.
@@ -2228,6 +2310,18 @@ test('emits copies, so a listener cannot change what comes next', (t) => {
   assert.equal(seen[1].on, true);
 });
 
+test('getSample draws the packet playing now, for the signal check', (t) => {
+  const { driver, tick } = started(t);
+  driver.play([{ t: 0, state: packet('A', 0) }]);
+  tick(100);
+  let sample = null;
+  driver.getSample(0.2, (result) => { sample = result; });
+  assert.equal(sample.raw.length, 9600);
+  assert.equal(sample.bin.length, 9600);
+  assert.deepEqual(sample.bytes, ['A', '0', '0', '0', '0', '0', '@', '\n', '\r']);
+  assert.ok(sample.raw.some((value) => value === -1), 'the packet is in the trace, not just idle');
+});
+
 test('stop halts the packets', (t) => {
   const { driver, seen, tick } = started(t);
   driver.play([{ t: 0, state: packet('I', 0) }]);
@@ -2249,7 +2343,7 @@ Expected: FAIL with `Cannot find module` for `js/drivers/mock.js`.
 // Mock StackMat driver (system design §4): replays scenarios from ./scenarios.js behind the same
 // interface as the real driver, so the core cannot tell them apart. Like a real mat it sends a
 // packet every 100 ms, and it keeps repeating its last state once a scenario ends.
-import { PACKET_MS } from './scenarios.js';
+import { PACKET_MS, packetBits, packetBytes } from './scenarios.js';
 
 export function createMockDriver() {
   let listener = () => {};
@@ -2275,8 +2369,25 @@ export function createMockDriver() {
     onState(callback) {
       listener = callback;
     },
+    // A synthesised trace of the packet playing now, so SIGNAL CHECK (operator spec §3.6) can be
+    // rehearsed on a machine with no microphone. 48 kHz is what a browser's AudioContext usually
+    // runs at; the screen derives the rate from the sample's own length, so the exact figure only
+    // has to be plausible.
     getSample(seconds, callback) {
-      callback({ raw: [], bin: [], bits: [], bytes: [] });
+      const rate = 48000;
+      const perBit = Math.round(rate / 1200);
+      const bits = current === null ? [] : packetBits(current);
+      const bytes = current === null ? [] : packetBytes(current);
+      const raw = [];
+      const bin = [];
+      for (let i = 0; i < Math.round(seconds * rate); i += 1) {
+        // The packet's bits, then idle for the rest of the 100 ms it shares with the next packet.
+        const index = Math.floor(i / perBit) % 120;
+        const bit = index < bits.length ? bits[index] : 1;
+        bin.push(bit);
+        raw.push(bit ? 1 : -1);
+      }
+      callback({ raw, bin, bits, bytes });
     },
     async listDevices() {
       return [['mock', 'Mock mat']];
@@ -2293,7 +2404,7 @@ export function createMockDriver() {
 - [ ] **Step 4: Run the test**
 
 Run: `node --test test/drivers/mock.test.js`
-Expected: `ℹ pass 5`, `ℹ fail 0`.
+Expected: `ℹ pass 6`, `ℹ fail 0`.
 
 - [ ] **Step 5: Write the scenario replays**, `test/drivers/replay.test.js`
 
@@ -2624,6 +2735,10 @@ test('each state is copied, so the decoder mutating it later changes nothing', (
   state.on = false;
   decoder.callback(state);
   assert.deepEqual(seen.map((s) => s.on), [true, false]);
+  // The second call is the same object again: a re-emission, not a packet.
+  assert.deepEqual(seen.map((s) => s.fresh), [true, false]);
+  decoder.callback({ on: true, signalHeader: 'C' });
+  assert.equal(seen.at(-1).fresh, true);
 });
 
 test('listDevices and getSample pass through to the decoder', async () => {
@@ -2700,9 +2815,16 @@ export function createRealDriver({
   permissions = globalThis.navigator?.permissions,
 } = {}) {
   let listener = () => {};
-  // When the signal drops, the decoder sets on = false on the object it emitted last and emits it
-  // again. Copying each state keeps an earlier one from changing under the core.
-  decoder.setCallBack((state) => listener({ ...state }));
+  let lastRaw = null;
+  // When the line idles or the signal drops, the decoder emits the object it emitted last, mutated
+  // (vendor/stackmat.js lines 202–213). Copying each state keeps an earlier one from changing under
+  // the core — and erases the only clue that a callback was not a new packet, so identity is
+  // compared first. SIGNAL CHECK counts packets per second from `fresh` (operator spec §3.2, §4).
+  decoder.setCallBack((state) => {
+    const fresh = state !== lastRaw;
+    lastRaw = state;
+    listener({ ...state, fresh });
+  });
 
   return {
     // Call from a click: the decoder creates its AudioContext inside init(), and a context created
@@ -3188,7 +3310,7 @@ export function createScrambler(worker) {
 - [ ] **Step 5: Run the whole suite**
 
 Run: `npm test`
-Expected: `ℹ pass 135`, `ℹ fail 0`, `ℹ skipped 0`.
+Expected: `ℹ pass 139`, `ℹ fail 0`, `ℹ skipped 0`.
 
 - [ ] **Step 6: Commit**
 
@@ -3772,7 +3894,7 @@ real mat's audio callback is not throttled.
 - [ ] **Step 9: Run the unit suite again**
 
 Run: `npm test`
-Expected: `ℹ pass 135`, `ℹ fail 0`. The smoke script is not a `*.test.js` file, so `npm test` does
+Expected: `ℹ pass 139`, `ℹ fail 0`. The smoke script is not a `*.test.js` file, so `npm test` does
 not pick it up.
 
 - [ ] **Step 10: Commit**

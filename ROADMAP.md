@@ -18,7 +18,7 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 | System design (approved) | `docs/superpowers/specs/2026-09-15-tournament-display-system-design.md` |
 | UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT, STANDBY, ARMED, RUNNING, PENDING and RESULTS written; the rest are added screen by screen, from §10 on. §9 lists the amendments PENDING required of both plans, made on 2026-09-19, and why RESULTS needs none |
 | Operator UI spec | `docs/superpowers/specs/2026-09-19-tournament-display-operator-ui-design.md` — the other window: §2 the operator's shared system, §3 SIGNAL CHECK. SETUP and the OPERATOR PANEL are added to it. §4 lists the amendments it requires of the engine plan |
-| Implementation plans | `docs/superpowers/plans/` — the **engine** plan, `2026-09-18-tournament-engine.md` (Phase 2 rows 0–4 and 8, and row 5's key loop), and the first **screens** plan, `2026-09-18-audience-screens.md` (row 6 for screens 1–5, ATTRACT to PENDING, with their screen changes, and row 7; it runs after the engine plan), are written, and amended for PENDING. The next screens plan covers RESULTS, core work included, and NO SIGNAL once it is designed, and the operator's screens 8–10 get their own plan, whose scope §4 of the operator spec sets |
+| Implementation plans | `docs/superpowers/plans/` — the **engine** plan, `2026-09-18-tournament-engine.md` (Phase 2 rows 0–4 and 8, and row 5's key loop), and the first **screens** plan, `2026-09-18-audience-screens.md` (row 6 for screens 1–5, ATTRACT to PENDING, with their screen changes, and row 7; it runs after the engine plan), are written, and amended for PENDING. The next screens plan covers RESULTS, core work included, and NO SIGNAL once it is designed, and the **signal check** plan, `2026-09-19-signal-check.md` (row 9: screen 8, after the engine plan), is written. Screens 9–10 get theirs once they are designed |
 | Vendored code + provenance | `vendor/` |
 | Brand assets + university logos | `assets/`, `assets/universidades/` |
 | csTimer reference (never executed) | `docs/reference/cstimer-timer-stackmat.js` |
@@ -122,20 +122,19 @@ independent of UI design and could begin immediately.
 
 ## Immediate next step
 
-SIGNAL CHECK is designed (operator spec §3), and it is the first operator screen, so §2 of that
-spec now holds the operator window's shared system. Three threads are open, in any order:
+SIGNAL CHECK is designed (operator spec §3) and planned (`plans/2026-09-19-signal-check.md`), and
+the engine plan was amended on 2026-09-19 for the four things it needs — `fresh` on driver states,
+`disarm`, `s` in the keymap, and the mock mat's synthesised audio sample. Two threads are left
+before the whole of Phase 1 is designed:
 
-1. **Amend the engine plan** for the four things SIGNAL CHECK needs from code that plan already
-   writes (operator spec §4). One of them is a bug: the vendored decoder re-emits its last state
-   object when the line idles, and `real.js` copies every state, so counting callbacks would report
-   packets from a mat that is unplugged. The driver must mark a state `fresh`.
-2. **Brainstorm screen 7 (NO SIGNAL)** in the visual companion — the last audience screen, starting
+1. **Brainstorm screen 7 (NO SIGNAL)** in the visual companion — the last audience screen, starting
    at UI spec §10. It follows the motion signature and the screen-change rule (UI spec §2.2, §2.7),
    and two screens have set requirements for it: it must not cover RESULTS (§8.9), and it is what
    the room holds while the operator is inside SIGNAL CHECK, so it should be calm (operator spec
    §3.12).
-3. **Write the plans**: one screens plan for RESULTS and NO SIGNAL, carrying RESULTS' core work
-   (UI spec §9), and one operator-screens plan for screens 8–10 (operator spec §4).
+2. **Write the screens plan for RESULTS and NO SIGNAL**, carrying RESULTS' core work (UI spec §9).
+
+Screens 9 and 10 are still undesigned, and they are the last of Phase 1.
 
 Start the companion with:
 
