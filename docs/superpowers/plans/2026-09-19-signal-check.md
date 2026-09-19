@@ -82,10 +82,17 @@ test/browser/smoke.js        + the checks that the mat is cut off from the event
 ## Conventions
 
 - Use Node **24.2 or newer** (`node --version`).
-- **The code in Tasks 1–3 is final, and was run before this plan was written**: `node --test` on
-  those three files reports `pass 31`, `fail 0`. Copy it exactly. Tasks 4–6 draw and wire, and could
-  not be run here, because the engine plan's files do not exist in this checkout yet — treat their
-  code as the design and let the smoke test in Task 7 settle it.
+- **The code in Tasks 1–3 was run before this plan was written**: `node --test` on those three files
+  reported `pass 31`, `fail 0`. Copy it exactly. Tasks 4–6 draw and wire, and could not be run here,
+  because the engine plan's files do not exist in this checkout yet — treat their code as the design
+  and let the smoke test in Task 7 settle it.
+- ⚠ **The SETUP amendment of 2026-09-19 is the exception, and was NOT run.** Operator spec §5.1 added
+  a fourth link state to `diagnose` (`waiting`), a `canConnect` argument, the `refused` verdict, the
+  `waiting` dot in Task 4's stylesheet, and the unmarked verdict line in Task 5. That raises the
+  expected total to **`pass 34`**, from three new cases in `signal-health.test.js`. Those counts are
+  derived, not measured. **If the suite disagrees, trust the suite and fix the code** — but read the
+  test named *"a mat that is never connected keeps reading CRONÓMETRO SIN CONECTAR"* before changing
+  anything in `diagnose`: it pins down the one regression this amendment can cause.
 - Run one file with `node --test <file>`, the suite with `npm test`, the browser check with
   `npm run smoke`.
 - Stage files by name. **Never run `git add -A` or `git add .`**
@@ -322,6 +329,37 @@ test('no microphone: denied, and not connected', () => {
   assert.equal(off.verdict.sentence, 'Pulsa Conectar para empezar a escuchar.');
 });
 
+test('not connected is waiting, not broken', () => {
+  const off = diagnose(healthy({ connected: false, lastState: null, packetTimes: [] }));
+  assert.deepEqual(statuses(off), ['waiting', 'unknown', 'unknown', 'unknown', 'unknown']);
+  assert.equal(off.bad, false, 'an unpressed button is not a fault');
+  assert.equal(off.waiting, true);
+  assert.equal(link(off, 'mic').value, 'Sin conectar');
+});
+
+test('a mat that is never connected keeps reading CRONÓMETRO SIN CONECTAR', () => {
+  // The regression `waiting` introduces if it does not stop the chain: MICRÓFONO stops being
+  // broken, so PAQUETES becomes the first break as soon as its window opens empty, and the screen
+  // reads NO SE OYE EL CRONÓMETRO — in red — with nothing connected at all.
+  const d = diagnose(healthy({
+    connected: false, lastState: null, packetTimes: [], openedAt: NOW - 60_000,
+  }));
+  assert.equal(d.verdict.line, 'CRONÓMETRO SIN CONECTAR');
+  assert.equal(d.bad, false);
+  assert.equal(link(d, 'packets').status, 'unknown', 'nothing after MICRÓFONO has been judged');
+});
+
+test('a second operator window is refused, and that IS broken', () => {
+  // Connecting there is impossible rather than pending, so it keeps the red (operator spec §4.13).
+  const d = diagnose(healthy({
+    connected: false, canConnect: false, lastState: null, packetTimes: [],
+  }));
+  assert.equal(d.verdict.line, 'OTRA VENTANA TIENE EL MANDO');
+  assert.deepEqual(statuses(d), ['bad', 'unknown', 'unknown', 'unknown', 'unknown']);
+  assert.equal(d.bad, true);
+  assert.equal(d.waiting, false);
+});
+
 test('silence on the input breaks SONIDO before anything else', () => {
   const d = diagnose(healthy({ lastState: { ...packet('I', 0), power: 0.0001, noise: 1 }, packetTimes: [] }));
   assert.equal(d.verdict.line, 'NO ENTRA SONIDO');
@@ -421,6 +459,7 @@ const secondsAgo = (ms) => Math.max(1, Math.round(ms / 1000));
 const VERDICTS = {
   denied: ['SIN MICRÓFONO', 'El navegador no permite el micrófono. Permítelo y vuelve a abrir esta pantalla.'],
   disconnected: ['CRONÓMETRO SIN CONECTAR', 'Pulsa Conectar para empezar a escuchar.'],
+  refused: ['OTRA VENTANA TIENE EL MANDO', 'Ya hay una ventana de operador abierta. Cierra esta y vuelve a la otra.'],
   sound: ['NO ENTRA SONIDO', 'No entra nada por esta entrada. Revisa el cable o elige otra entrada.'],
   silent: ['NO SE OYE EL CRONÓMETRO', 'Entra sonido, pero no trae paquetes. ¿Está encendido el cronómetro? ¿Es la entrada de línea?'],
   lossy: ['SE PIERDEN PAQUETES', 'Llegan {n} de cada 10. Suele ser el cable o el volumen de entrada.'],
@@ -432,8 +471,12 @@ const VERDICTS = {
 
 // packetTimes holds the timestamps of fresh packets (driver states with fresh && on). The caller
 // keeps that array and trims it; only the last THRESHOLDS.windowMs are counted here.
+// `canConnect` is false only when another operator window holds the microphone (engine plan
+// decision 8). Not connected *and* connectable is `waiting`, not broken: nothing is wrong, the
+// operator simply has not pressed Conectar. Not connected and refused IS broken — connecting
+// there is impossible, not pending. Operator spec §3.2, §4.3.
 export function diagnose({
-  permission = null, connected = false, deviceLabel = null,
+  permission = null, connected = false, deviceLabel = null, canConnect = true,
   packetTimes = [], lastState = null, test, openedAt, now,
 }) {
   const since = now - openedAt;
@@ -445,7 +488,9 @@ export function diagnose({
   const heard = lastState !== null;
 
   const mic = !connected
-    ? { status: 'bad', value: 'Sin conectar', detail: '—', verdict: 'disconnected' }
+    ? canConnect
+      ? { status: 'waiting', value: 'Sin conectar', detail: '—', verdict: 'disconnected' }
+      : { status: 'bad', value: 'Sin conectar', detail: '—', verdict: 'refused' }
     : permission === 'denied'
       ? { status: 'bad', value: 'Sin permiso', detail: deviceLabel ?? '—', verdict: 'denied' }
       : { status: 'ok', value: 'Permitido', detail: deviceLabel ?? '—' };
@@ -490,18 +535,25 @@ export function diagnose({
     { key: 'test', label: 'Prueba', ...prueba },
   ];
 
-  // The first broken link is the news; nothing after it has been judged. PRUEBA keeps its count,
-  // which is a fact about the mat, not about the signal.
-  const broken = links.findIndex((link) => link.status === 'bad');
-  if (broken !== -1) {
-    for (let i = broken + 1; i < links.length; i++) {
+  // The chain stops at the first link that is broken OR waiting; nothing after it has been judged.
+  // PRUEBA keeps its count, which is a fact about the mat, not about the signal.
+  //
+  // `waiting` has to stop the chain even though it is not a fault. Without this, an unconnected mat
+  // would leave MICRÓFONO un-broken, PAQUETES would go bad a second later when its window opened
+  // empty, and the screen would read NO SE OYE EL CRONÓMETRO, in red, with nothing connected at all.
+  const stop = links.findIndex((link) => link.status === 'bad' || link.status === 'waiting');
+  if (stop !== -1) {
+    for (let i = stop + 1; i < links.length; i++) {
       links[i] = links[i].key === 'test'
         ? { ...links[i], status: 'unknown', detail: 'en pausa' }
         : { ...links[i], status: 'unknown', value: '—', detail: '' };
     }
   }
 
-  const key = broken !== -1 ? links[broken].verdict
+  // Computed after the propagation above, so a chain stopped by `waiting` reports nothing broken.
+  const broken = links.findIndex((link) => link.status === 'bad');
+
+  const key = stop !== -1 ? links[stop].verdict
     : measuring || !heard ? 'measuring'
       : done === TEST_ITEMS.length ? 'ready' : 'clean';
   const [line, template] = VERDICTS[key];
@@ -512,6 +564,7 @@ export function diagnose({
   return {
     links,
     bad: broken !== -1,
+    waiting: stop !== -1 && broken === -1,
     measuring: key === 'measuring',
     verdict: { key, line, sentence },
   };
@@ -534,7 +587,8 @@ export function matLine(lastState) {
 - [ ] **Step 4: Run the test**
 
 Run: `node --test test/core/signal-health.test.js`
-Expected: `ℹ pass 14`, `ℹ fail 0`.
+Expected: `ℹ pass 17`, `ℹ fail 0`. *(14 before the SETUP amendment of 2026-09-19 added three — see
+Conventions: those three, and the `diagnose` changes they cover, were not run when written.)*
 
 - [ ] **Step 5: Commit**
 
@@ -895,6 +949,9 @@ at all. SETUP and the panel will reuse the tokens at the top of this file.
 .sc-link.unknown .sc-link-dot { border: 1.5px dashed var(--o-unknown); }
 .sc-link.unknown .sc-link-label,
 .sc-link.unknown .sc-link-value { color: var(--o-unknown); }
+/* `waiting`: a solid ring, not a dash — "this is where you are", not "not measured".
+   Its label and value stay white: the link is live, it is just not started (spec §3.2, §4.3). */
+.sc-link.waiting .sc-link-dot { border: 1.5px solid #fff; }
 .sc-connect {
   padding: 6px 16px;
   border: 1px solid var(--o-divider);
@@ -1280,8 +1337,11 @@ export function createSignalCheck({ root, mat }) {
     connect.hidden = mat.connected();
 
     byId('sc-verdict').classList.toggle('bad', health.bad);
-    // MIDIENDO LA ENTRADA carries neither mark: nothing has been judged yet (spec §3.3).
-    byId('sc-line').textContent = `${health.bad ? '✕ ' : health.measuring ? '' : '✓ '}${health.verdict.line}`;
+    // MIDIENDO LA ENTRADA and CRONÓMETRO SIN CONECTAR carry neither mark: nothing has been judged
+    // yet, and a tick would claim otherwise (spec §3.3). A tick here would also be the screen's
+    // only "all good" signal while the mat is not even connected.
+    const mark = health.bad ? '✕ ' : health.measuring || health.waiting ? '' : '✓ ';
+    byId('sc-line').textContent = `${mark}${health.verdict.line}`;
     byId('sc-sentence').textContent = health.verdict.sentence;
 
     const on = Boolean(lastState?.on);

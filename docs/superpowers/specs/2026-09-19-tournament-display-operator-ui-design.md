@@ -547,22 +547,40 @@ test is incomplete, **TODO LISTO** at 6 of 6, and the red rows whenever a link a
 
 Top of the left column. It answers "which event" before the operator is asked to choose.
 
-| State | Reading (`--o-fs-num`) | Detail (`--o-fs-body`, `--violet`) |
+The store answers with one of three statuses — `none`, `ok` or `corrupt` (engine plan, Task 14) —
+and the block has a state for each.
+
+| Store says | Reading (`--o-fs-num`) | Detail (`--o-fs-body`, `--violet`) |
 |---|---|---|
-| A saved event | `7 de 13 universidades` | `19 intentos registrados · la última, UNAPEC, hace 14 min` |
-| Nothing saved | `No hay nada guardado` | `Este será el primero` |
+| `ok` | `7 de 13 universidades` | `19 intentos registrados · la última, UNAPEC, hace 14 min` |
+| `none`, or `ok` with zero attempts | `No hay nada guardado` | `Este será el primero` |
+| `corrupt` | `Hay un evento guardado` | `No se puede leer. Empezar uno nuevo lo archiva sin borrarlo.` |
 | Mock (`?driver=mock`) | as above | prefixed `Ensayo · ` |
 
-- All of it comes from code the engine plan already writes: `event.attempts.length`,
-  `startedCount(event, null)`, and `at` on the last attempt. **No engine amendment is needed.**
+- All of it comes from code the engine plan already writes: the attempt log's length,
+  `startedCount`, and `at` on the last attempt. **No engine amendment is needed.**
 - With nothing saved, the block is drawn in the unknown violet with a **dashed** 1px border, and the
   Reanudar button is not drawn at all — not drawn-and-disabled. There is nothing to explain.
-- A saved event with **zero** recorded attempts counts as nothing saved (§4.15).
+- **`corrupt` is drawn in `--red`**, and it is the one state where the block itself reports a
+  problem. It must never be shown as "nothing saved": results exist, and telling the operator
+  otherwise invites them to start fresh over an event they cannot see. **Reanudar is not drawn**
+  (there is nothing parseable to resume), and **Empezar evento nuevo archives rather than clears,
+  even in mock mode** — an unreadable log is the one case where the bytes might still be recovered
+  by hand.
 
 ### 4.6 Starting fresh
 
-`Empezar evento nuevo` discards the saved event. It is not archived: this project runs many
-rehearsal events, and an archive of throwaways is a junkyard the operator has to ignore.
+`Empezar evento nuevo` ends the saved event. **A real event is archived; a rehearsal is not.**
+
+The engine's store already writes the outgoing log to a timestamped key — `store.archive(now)`,
+whose own comment reads *"starting fresh never destroys anything"*. That is kept for real events:
+it is invisible, costs a few kilobytes, and no screen ever lists it, so it is not the junkyard that
+a "previous event" slot in the interface would have been.
+
+**Mock mode clears instead of archiving.** This project runs many rehearsals, and archiving each
+one would grow `localStorage` without bound for no possible benefit — a rehearsal's results can
+never be wanted back. `?driver=mock` therefore removes its key outright. This is the same
+distinction the typed confirm makes, and for the same reason.
 
 **A real event requires the count typed.** The button's second state names what is about to be lost
 and asks for the number of recorded attempts — `19` — before it arms. A number that changes every
@@ -654,14 +672,19 @@ One new pure module. Everything else is §3.10's, reused.
 
 ```js
 // js/core/setup-gate.js
-setupGate({ diagnosis, test, saved, mock })
+setupGate({ diagnosis, test, saved, mock, canConnect })
   → { resume: { shown, enabled },
-      fresh:  { shown, enabled, why, confirm, count } }   // confirm ∈ 'none' | 'typed'
-savedSummary(event)  → null | { started, attempts, lastTeamId, lastAt }
+      fresh:  { shown, enabled, why, confirm, count, archive } }
+      // confirm ∈ 'none' | 'typed'        archive: keep the outgoing log, or drop it (§4.6)
+savedSummary(loaded) → null | { corrupt: true } | { started, attempts, lastTeamId, lastAt }
 ```
 
-`savedSummary` returns `null` for an event with no attempts, which is what collapses that case into
-"nothing saved" (§4.5). `setupGate` reads `diagnosis.links` — it does not re-measure anything.
+`loaded` is the store's own answer, `{ status: 'none' | 'ok' | 'corrupt', attempts? }` — SETUP does
+not reach past it into `localStorage`. `savedSummary` returns `null` for `none` **and** for `ok`
+with no attempts, which is what collapses those two into one case (§4.5), and `{ corrupt: true }`
+for a log that exists but cannot be parsed, which must stay distinguishable from both.
+
+`setupGate` reads `diagnosis.links` and re-measures nothing.
 
 ### 4.12 The snapshot
 
@@ -706,6 +729,9 @@ Two amendments to an approved screen, both small and both improvements to it:
 | Permission denied | MICRÓFONO **red**, `SIN MICRÓFONO` (§3.3). A real fault: the fourth state does not apply |
 | A second operator window | MICRÓFONO red, `OTRA VENTANA TIENE EL MANDO` (§4.13). Both actions are gated |
 | Saved event with zero attempts | Counts as nothing saved: no Reanudar button, no typed confirm (§4.5) |
+| **Saved log unreadable** (`corrupt`) | The block turns red and says so. No Reanudar. `Empezar evento nuevo` **archives**, in mock mode too, and needs no typed count — there is no count to type (§4.5, §4.6) |
+| Starting fresh on a real event | The outgoing log is archived to a timestamped key by `store.archive(now)` — silent, listed nowhere (§4.6) |
+| Starting fresh in mock mode | The key is removed outright. Rehearsals never accumulate (§4.6) |
 | Device changed at 5 of 6 | The ticks reset (§3.4) and the fresh gate closes again. Correct: the test belongs to the device that produced it |
 | Cable pulled after 6 of 6 | PAQUETES breaks, the fresh gate closes, the ticks **stay**. Reconnect and it reopens without retesting |
 | Mock mode | Fresh needs no typed confirm; the event block is prefixed `Ensayo ·`; the test and the chain work exactly as on a real mat (§3.1) |
