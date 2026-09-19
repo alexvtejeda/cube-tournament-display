@@ -15,3 +15,6 @@ exports/
 .DS_Store
 .idea/
 *.swp
+
+# Isolated worktrees for plan execution
+.worktrees/
