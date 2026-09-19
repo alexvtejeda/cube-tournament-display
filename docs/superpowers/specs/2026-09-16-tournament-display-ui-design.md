@@ -1082,8 +1082,10 @@ lastDecision: {
 ```
 
 - `accept`, `plus2`, `dnf` and `redo` in PENDING set it.
-- It is cleared by every other command (N, ←/→, U, `Space` for inspection, `Esc`), and by
-  SCRAMBLE → ARMED. So the last attempt in the log is always the decided one while it is set.
+- It is cleared by the commands that act after it (N, ←/→ and U), and by SCRAMBLE → ARMED. So the
+  last attempt in the log is always the decided one while it is set. `Space` and `Esc` act only in
+  ARMED, where it is already clear, so a second `Space` pressed by accident after accepting leaves
+  the verdict alone (settled when the engine plan was amended, its decision 13).
 - `reason`, for a DNF: `'CUTOFF'` when `ms > cutoffMs`, otherwise `'INSPECTION'` when
   `suggestedPenalty(inspectionMs) === 'DNF'`, otherwise `null`.
 
@@ -1136,6 +1138,7 @@ These came up while designing PENDING. The screens themselves are not designed h
 |---|---|
 | Mat reset during the verdict | ARMED at once. `lastDecision` is cleared. Same family, so no screen change runs (§2.7) |
 | N or ←/→ during the verdict (after attempt 1 or 2) | `lastDecision` is cleared, and Mezcla for the chosen university follows §2.7 |
+| A second `Space`, or an `Esc`, during the verdict | Nothing changes: both act only in ARMED (§7.5) |
 | U during or after the verdict | PENDING reopens under EN REVISIÓN with the same time. The maze freezes, and the change from Mezcla or Resultado runs in reverse (§2.7) |
 | Attempt 3 decided | At the key the band shows the wait line. After 3 s, Resultado |
 | +2 carries the time past 1:00.00 (`58.50`) | The second tick reads `1:00.50`, and the clock re-centres |
@@ -1158,7 +1161,7 @@ These came up while designing PENDING. The screens themselves are not designed h
 - **`lastDecision`:**
   - `accept`, `plus2`, `dnf` and `redo` set it, with the attempt number, the stopped time (no
     penalty) and the key's timestamp;
-  - N, ←/→, U, `Space`, `Esc` and SCRAMBLE → ARMED clear it.
+  - N, ←/→, U and SCRAMBLE → ARMED clear it; a `Space` or an `Esc` during the verdict does not.
 - **`reason`:** a DNF at `cutoffMs + 10` → `CUTOFF` · at exactly `cutoffMs` → not `CUTOFF` · with
   `inspectionMs` 17001 → `INSPECTION` · both → `CUTOFF` · `OK`, `+2` and `REDO` → `null`.
 - **`buildSnapshot`:**
@@ -1204,8 +1207,11 @@ within the *solo* family, and every name §2.7 lists for a change exists on both
 
 The engine plan (`plans/2026-09-18-tournament-engine.md`) and the first screens plan
 (`plans/2026-09-18-audience-screens.md`) were written before PENDING was designed, and neither has
-been executed. **Both must be amended before they are executed.** The amendments are made in the
-plan phase that follows this spec. They are listed here so that nothing is lost.
+been executed. **Both were amended on 2026-09-19**, in the plan phase that followed this spec, as
+listed below. The screens plan took RUNNING and PENDING in (item 1), so it now builds screens 1–5.
+Planning also found two gaps, now closed in the engine plan: `formatCutoff` (§6.4) had no task, and
+joined Task 3; and the roster generator could not write `config/event.json` in a fresh checkout,
+which has no `config/` folder.
 
 **Engine plan:**
 

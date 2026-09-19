@@ -3,7 +3,8 @@
 Where this project stands, what is settled, and what is left. Written **2026-09-15** as a
 handoff so a fresh session can pick up without re-deriving anything; updated **2026-09-16**, when
 STANDBY and then ARMED were decided, **2026-09-18**, when the engine plan and the first screens
-plan were written, and **2026-09-19**, when RUNNING and then PENDING were decided.
+plan were written, and **2026-09-19**, when RUNNING and then PENDING were decided and both plans
+were amended for them.
 
 Target event: **CTF Interuniversitario 2026**, October. 13 universities, one participant each.
 
@@ -14,8 +15,8 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 | What | Path |
 |---|---|
 | System design (approved) | `docs/superpowers/specs/2026-09-15-tournament-display-system-design.md` |
-| UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT, STANDBY, ARMED, RUNNING and PENDING written; the rest are added screen by screen. §9 lists the amendments PENDING requires of both plans |
-| Implementation plans | `docs/superpowers/plans/` — the **engine** plan, `2026-09-18-tournament-engine.md` (Phase 2 rows 0–4 and 8, and row 5's key loop), and the first **screens** plan, `2026-09-18-audience-screens.md` (row 6 for ATTRACT, STANDBY and ARMED, and row 7; it runs after the engine plan), are written. A plan for screens 4–10 follows the last screen design |
+| UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT, STANDBY, ARMED, RUNNING and PENDING written; the rest are added screen by screen. §9 lists the amendments PENDING required of both plans, made on 2026-09-19 |
+| Implementation plans | `docs/superpowers/plans/` — the **engine** plan, `2026-09-18-tournament-engine.md` (Phase 2 rows 0–4 and 8, and row 5's key loop), and the first **screens** plan, `2026-09-18-audience-screens.md` (row 6 for screens 1–5, ATTRACT to PENDING, with their screen changes, and row 7; it runs after the engine plan), are written, and amended for PENDING. The next screens plan covers RESULTS and NO SIGNAL once they are designed, and the operator's screens 8–10 follow |
 | Vendored code + provenance | `vendor/` |
 | Brand assets + university logos | `assets/`, `assets/universidades/` |
 | csTimer reference (never executed) | `docs/reference/cstimer-timer-stackmat.js` |
@@ -114,12 +115,9 @@ independent of UI design and could begin immediately.
 
 ## Immediate next step
 
-**Amend both implementation plans** as UI spec §9 lists, before either is executed. PENDING added a
-`lastDecision` to the run state and `verdict` and `standingsBefore` to the snapshot. So the engine
-plan now depends on the screen design, and can no longer run alongside the brainstorms untouched.
-The screens plan builds STANDBY's standings and the screen changes differently now. Then brainstorm
-screen 6 (**RESULTS**) in the visual companion. It follows the motion signature and the
-screen-change rule (UI spec §2.2, §2.7). Start the companion with:
+**Brainstorm screen 6 (RESULTS) and then screen 7 (NO SIGNAL)** in the visual companion, and write
+their plan. Both follow the motion signature and the screen-change rule (UI spec §2.2, §2.7). Start
+the companion with:
 
 ```sh
 ~/.claude/skills/visual-companion/scripts/start-server.sh \
@@ -130,3 +128,8 @@ Existing screens are preserved. `pending-16-final.html`, `running-06-final.html`
 `standby-09-final.html` are the closest references for house style, and the UI spec's §2 holds the
 shared tokens. `armed-04-final.html` still shows the old 17.6cqw clock (UI spec §5.9), and
 `standby-09-final.html` the old standings (§4.9).
+
+**Then execute the plans** with subagents in a worktree, the engine plan first and then the screens
+plans, while the operator's screens (8–10) are brainstormed in the main session. The engine plan and
+the first screens plan were amended for PENDING on 2026-09-19 and are ready to run. Every step's code
+was replayed from the plans' text and passed.
