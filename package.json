@@ -1,0 +1,19 @@
+{
+  "name": "cube-tournament-display",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Live tournament display for a StackMat-timed Rubik's cube event",
+  "license": "GPL-3.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.2"
+  },
+  "scripts": {
+    "start": "node serve.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "gen-event": "node tools/gen-event.js"
+  },
+  "dependencies": {
+    "cstimer_module": "0.1.5"
+  }
+}
