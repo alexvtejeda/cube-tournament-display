@@ -1,6 +1,9 @@
 # Design-session scratch — mockups live here, kept local by choice
 .superpowers/
 
+# Playwright MCP screenshots taken while checking a mockup
+.playwright-mcp/
+
 # Dependencies
 node_modules/
 
