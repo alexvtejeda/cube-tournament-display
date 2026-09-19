@@ -1,7 +1,7 @@
 # Tournament Display — UI Design
 
 **Date:** 2026-09-16
-**Status:** In progress — written screen by screen. **ATTRACT**, **STANDBY** and **ARMED** are approved; the other seven screens are not yet designed
+**Status:** In progress — written screen by screen. **ATTRACT**, **STANDBY**, **ARMED** and **RUNNING** are approved; the other six screens are not yet designed
 **Scope:** Audience-window screens: layout, copy, visual values, and the data each screen needs from the core
 **Companion spec:** [`2026-09-15-tournament-display-system-design.md`](2026-09-15-tournament-display-system-design.md) (architecture, run loop, scoring, persistence). This is the `tournament-display-ui-design` spec its §13 defers to.
 
@@ -23,8 +23,9 @@ radius introduced during STANDBY was converted to `cqw` for this reason (§2.2).
 |---|---|---|
 | 1 ATTRACT | ✅ Approved | `attract-DECIDED.html` |
 | 2 STANDBY | ✅ Approved | **`standby-09-final.html`** (v9) |
-| 3 ARMED | ✅ Approved | **`armed-04-final.html`** |
-| 4–10 | Not yet designed | — |
+| 3 ARMED | ✅ Approved | **`armed-04-final.html`** (clock size superseded, §5.9) |
+| 4 RUNNING | ✅ Approved | **`running-06-final.html`** |
+| 5–10 | Not yet designed | — |
 
 ---
 
@@ -45,6 +46,7 @@ plus exactly one new value (locked decision 10).
 | Labels, secondary text, rank numbers, ARMED's waiting countdown | `--violet #aba6f7` | site token |
 | Leader row | `--gold-text #ffea95` | site token |
 | Mascot glow | `--red #EE2737` at 30% | site token |
+| RUNNING's clock and status line past the cutoff | `--red #EE2737` | site token |
 | Plate fill | `#f7f7f7` | site literal (`--grad-lavender`, `sections.css`) |
 | Standings names | `#e8e6ff` | site literal (`sections.css`) |
 | Primary text | `#fff` | — |
@@ -53,14 +55,16 @@ plus exactly one new value (locked decision 10).
 
 - **`--go` is reserved for the mat's green light.** No idle or status element may use it. The
   STANDBY draft used it for a "CRONÓMETRO LISTO" label; that label was removed. ARMED is the only
-  screen so far that uses it, and only while the light is green (§5.2).
-- **`--gold #d4aa06` and `--red #EE2737` as text colours were offered and declined** for ARMED's
-  +2 and DNF (§5.2), which are words only. Neither has a text role yet; RUNNING's cutoff decides
-  its own colours.
+  screen so far that uses it, and only while the light is green (§5.2). RUNNING never does (§6.1).
+- **`--red #EE2737` has one text role: RUNNING past the cutoff** (§6.1). It was offered and declined
+  for ARMED's +2 and DNF (§5.2), which stay words only.
+- **`--gold #d4aa06` has no role.** It was declined for ARMED's +2, and again for a warning step
+  before RUNNING's cutoff (§6.1).
 - The only colours outside this palette are the cube preview's sticker colours, which come from
   csTimer (§4.5).
 - Contrast on `--bg-deep`: `--violet` 9.41:1 · `#e8e6ff` 16.99:1 · `--gold-text` 17.24:1 · `--go`
-  12.79:1. `--violet-deep` is **1.44:1** and must never carry text.
+  12.79:1 · `--red` 4.92:1, above AA's 4.5:1 even for body-size text. `--violet-deep` is **1.44:1**
+  and must never carry text.
 
 ### 2.2 Tokens
 
@@ -70,16 +74,17 @@ plus exactly one new value (locked decision 10).
 --fs-body:   1.38cqw;  /* header, standings rows, names, sub-lines */
 --fs-lead:   2.2cqw;   /* ATTRACT tagline, scramble */
 --fs-hero:   4.4cqw;   /* big figures: attempt number, best time (2 × lead) */
---fs-clock:  17.6cqw;  /* the clock and the inspection countdown (4 × hero) */
+--fs-clock:  13.6cqw;  /* the clock and the inspection countdown */
 ```
 
 - **Radius.** It was set as `1rem` during design, then converted: `1rem` is a fixed 16px, which is
   1.26cqw at the mockup's width but 0.83cqw at 1920px, so the projector would have shown noticeably
   sharper corners than the approved mockup. `1.26cqw` scales with the screen. One radius, used
   everywhere a radius appears.
-- **Type.** Five sizes. `1.38` and `2.2` come from ATTRACT's own scale (~1.6× per step), `4.4` is
-  2 × `2.2`, and `17.6` is 4 × `4.4`, the largest size the body holds (§5.3). The STANDBY draft's
-  1.25 / 1.45 / 1.5 all collapsed into `--fs-body`.
+- **Type.** Five sizes. `1.38` and `2.2` come from ATTRACT's own scale (~1.6× per step), and `4.4`
+  is 2 × `2.2`. `13.6` was set by eye at full screen while RUNNING was designed (2026-09-19). It
+  replaced `17.6` (4 × `4.4`), which was bigger than the clock needed, and it follows no ratio on
+  purpose. The STANDBY draft's 1.25 / 1.45 / 1.5 all collapsed into `--fs-body`.
 - **Weights:** 500 for body text and the scramble · 700 for rank numbers and the ATTRACT tagline ·
   800 for big figures, the clock, the leader row and the featured standings row. Spaced uppercase
   labels and ARMED's status line use the regular weight.
@@ -93,8 +98,9 @@ plus exactly one new value (locked decision 10).
   tabular, so a running clock cannot jitter and no mono fallback is needed. Every time still sets
   `font-variant-numeric: tabular-nums`, which costs nothing and covers the fallback stack.
 - **Motion:** no project-wide motion signature yet. It will be decided on a screen that needs one,
-  most likely RUNNING or PENDING. Screens so far use only the maze and ATTRACT's logo pulse.
-  ARMED adds none: its changes are instant, because the green must match the physical light.
+  most likely PENDING. Screens so far use only the maze and ATTRACT's logo pulse. ARMED and RUNNING
+  add none: their changes are instant, because ARMED's green must match the physical light and
+  RUNNING's red must match the moment the clock passes the cutoff.
 
 ### 2.3 University plate
 
@@ -516,12 +522,13 @@ From top to bottom:
    `margin-top 1.5cqw`.
 3. **Status line.** `--fs-body`, `.24em`, regular weight, `margin-top 1.2cqw`, coloured per §5.2.
 
-**Fit.** The widest text this clock will hold is RUNNING's `4:59.99`, which measures **63.3cqw** at
-`--fs-clock` with roc-grotesk loaded. The column's content is about 26cqw tall in a 39.02cqw body.
+**Fit.** The widest text this clock will hold is RUNNING's `4:59.99`, which measures **48.9cqw** at
+`--fs-clock` (13.6cqw) with roc-grotesk loaded. The column's content is about 23cqw tall in a
+39.02cqw body.
 
 **RUNNING keeps this layout.** It was chosen together with RUNNING's, so that when the solve starts
-only the clock's text and colour change and the room's eyes don't move. The rest of RUNNING
-belongs to screen 4.
+only the clock's text and colour change and the room's eyes don't move. The rest of RUNNING is in
+§6.
 
 ### 5.4 Core
 
@@ -589,7 +596,8 @@ These came up while designing ARMED. The screens themselves are not designed her
 1. **PENDING (screen 5):** the operator sees the attempt's `suggestedPenalty` together with its
    `inspectionMs`. Whether the audience sees the suggestion is PENDING's own question.
 2. **RUNNING (screen 4):** keeps ARMED's layout (§5.3). `--gold` and `--red` were declined for ARMED,
-   so the cutoff colours near and past 5:00 are an open decision, not an inherited one.
+   so the cutoff colours near and past 5:00 were an open decision, not an inherited one. **Resolved
+   in §6.1:** red past the cutoff, with no warning step.
 3. **OPERATOR PANEL (screen 10):** shows whether inspection is running and how long it has run, and
    lists `Space` and `Esc`.
 
@@ -634,9 +642,149 @@ Then check the invariants:
 - `+2` and `DNF` are always `#fff`;
 - there is no `--gold`, and no `--red` except the mascot's glow.
 
+### 5.9 Changes since ARMED was approved
+
+1. **Clock size** `17.6cqw` → `13.6cqw` (§2.2), decided on 2026-09-19 while RUNNING was viewed at
+   full screen. ARMED's countdown and RUNNING's clock share `--fs-clock`, so the digits keep their
+   size when the solve starts (§5.3). `armed-04-final.html` still shows 17.6; this spec wins (§1).
+
 ---
 
-## 6. Open across screens
+## 6. Screen 4 — RUNNING
 
-- **Motion signature:** decide on the first screen that needs one (§2.2).
-- **Screens 4–10**, in roadmap order. Next up: **RUNNING**, which inherits ARMED's layout (§5.6).
+**Purpose:** the solve, from the moment the competitor's hands leave the mat until the mat stops.
+**Mockup:** **`running-06-final.html`**. It shows six moments with every decision applied. The
+history runs through `running-01-cutoff.html` (three cutoff treatments), `running-02-fullscreen-b.html`
+and `running-03-fullscreen-b-136.html` (the chosen treatment at full screen, then at 13.6cqw),
+`running-04-armed-to-running.html` (one attempt from ARMED into RUNNING in real time) and
+`running-05-update-rate.html` (three ways to update the clock). They load the same mockup-only files
+as STANDBY (§4). `running-04` also loads `maze.js`, the live maze, and freezes it by holding back its
+`requestAnimationFrame` callbacks, a mockup stand-in for `createMaze().pause()` (§2.5).
+
+### 6.1 Rules
+
+RUNNING renders from two snapshot fields, `displayMs` and `cutoffMs` (§6.5), by these rules:
+
+- **Clock text:** `formatMs(displayMs)`, in the format from system design §6: `42.18` under a
+  minute, `2:14.30` over.
+- **Over the cutoff:** `displayMs > cutoffMs`. Strictly greater, as in system design §8, so `5:00.00`
+  is not over.
+- **Colour:** the clock `#fff` and the status line `--violet`, or both `--red` when over the cutoff.
+- **Status text:** `LÍMITE {formatCutoff(cutoffMs)}` (§6.4), or **LÍMITE EXCEDIDO** when over the
+  cutoff.
+
+The six moments in the mockup:
+
+| # | Moment | Clock | Status line |
+|---|---|---|---|
+| 1 | Solve under way | `7.83`, `#fff` | LÍMITE 5:00, `--violet` |
+| 2 | Under a minute | `42.18`, `#fff` | LÍMITE 5:00, `--violet` |
+| 3 | Over a minute | `2:14.30`, `#fff` | LÍMITE 5:00, `--violet` |
+| 4 | Exactly at the cutoff | `5:00.00`, `#fff` | LÍMITE 5:00, `--violet` |
+| 5 | Past the cutoff | `5:08.52`, `--red` | LÍMITE EXCEDIDO, `--red` |
+| 6 | Roster has no participant name | `3:12.07`, `#fff` | LÍMITE 5:00, `--violet`; the name line is omitted |
+
+- **The rule is on screen from the first second.** LÍMITE 5:00 is there so that cutting a
+  competitor off is the rule's doing, not the operator's (system design decision 5).
+- **One colour step, at the cutoff.** Three treatments were compared in `running-01-cutoff.html`:
+  words only (A), red past the cutoff (B), and a `--gold` warning from 4:30 followed by red (C).
+  **B was chosen.** With A the room had to read a small line to learn that time was up. C added a
+  second threshold, and a gold that is not the leader's gold.
+- **Red takes the clock and the status line together**, the way ARMED's green does (§5.2).
+- **Nothing stops, and no key acts during RUNNING.** The engine's run state ignores every command in
+  RUNNING. The operator calls time, the mat is stopped by hand, and the decision is made in PENDING.
+- **No inspection penalty is shown.** A start in the +2 window or past 17 s produces a suggestion
+  that first appears in PENDING (§5.6). Until the operator confirms it, it is not a penalty.
+- **`--go` never appears.** The mat's light is off once the solve starts.
+- Every change is **instant** (§2.2, motion).
+
+### 6.2 Layout
+
+**ARMED's, unchanged** (§5.3): the background, header, band, who line, clock and status line keep
+their places and sizes. When the solve starts, only the clock's text and colour and the status
+line's text change, so the room's eyes don't move. The maze freezes on the frame it was showing at
+that moment (§2.5).
+
+**Width.** The clock is centred, so it re-centres whenever the time gains a character: at `10.00`,
+and at `1:00.00`, when it gains the minutes digit and the colon. That is the system design's format,
+kept on purpose. At `--fs-clock`, `7.83` measures 28.6cqw, `42.18` 37.0cqw and `4:59.99` 48.9cqw.
+
+### 6.3 Clock updates
+
+**The clock draws `displayMs` as the snapshot carries it:** the mat's `time_milli` from its latest
+packet. Packets arrive about 10–13 times a second, so the hundredths change in jumps of about 8 and
+read as motion rather than as a digit.
+
+Three options were compared live in `running-05-update-rate.html`: hundredths on every packet (A),
+tenths while running with the hundredth added at the stop (B), and hundredths filled in between
+packets at 60 fps (C). **A was chosen:**
+
+- every value on screen is a real reading, and the stop lands exactly on the final time;
+- the figures are tabular (§2.2), so the width changes only when the time gains a character (§6.2),
+  never from one packet to the next and never at the stop;
+- the audience window runs no timer of its own. C would have needed one, and it could overshoot the
+  final time by up to one packet and then step back.
+
+### 6.4 Core
+
+One addition: a pure function in `js/core/format.js`, next to `formatMs`, tested with `node --test`.
+
+- `formatCutoff(ms)` returns `M:SS`. The cutoff is configured in whole seconds, so there are no
+  hundredths; any remainder is truncated, as `formatMs` does.
+
+The over-the-cutoff test is `displayMs > cutoffMs`, made by the audience view. It needs no core
+function.
+
+### 6.5 Snapshot
+
+**No new fields.** RUNNING reads `displayMs`, which is the mat's `time_milli` while
+`phase === 'RUNNING'`, and `cutoffMs`. The engine plan's `buildSnapshot` already sends both.
+`cutoffMs` was missing from the field lists in §4.4 and §5.5; it is part of the snapshot.
+
+### 6.6 Requirements for other screens
+
+These came up while designing RUNNING. The screens themselves are not designed here.
+
+1. **PENDING (screen 5):** it is where the suggested inspection penalty first appears (§5.6). It also
+   receives stopped times past the cutoff, and decides whether RUNNING's red carries over.
+2. **OPERATOR PANEL (screen 10):** no key acts during RUNNING. A mat reset to 0.00 mid-solve leaves
+   RUNNING up at 0.00 until the mat runs and stops again (§6.7), so the panel should make that state
+   recognisable. Whether the operator needs a way out of RUNNING is a core question for then.
+
+### 6.7 Edge cases
+
+| Case | Behaviour |
+|---|---|
+| Exactly `5:00.00` | Not over: `#fff`, LÍMITE 5:00 |
+| Competitor keeps solving past the cutoff | `--red`, LÍMITE EXCEDIDO, still counting. Nothing stops; the operator decides in PENDING |
+| Solve started in the +2 window or past 17 s | A normal RUNNING with nothing shown. PENDING suggests `+2` or `DNF` |
+| Mat reset to 0.00 mid-solve | Not a finish (system design §5). The clock shows `0.00`, and RUNNING stays up until the mat runs and stops again |
+| Signal lost | NO SIGNAL (screen 7) takes over. The core stays in RUNNING, and the solve finishes normally when packets resume |
+| Roster has no participant name | Name line omitted, as on ARMED |
+| A different cutoff in `config/event.json` | The status line follows it: `cutoffMs: 240000` reads LÍMITE 4:00, and red starts after `4:00.00` |
+
+### 6.8 Testing
+
+**Core (`node --test`):**
+
+- **`formatCutoff`:** `300000`→`5:00`, `240000`→`4:00`, `90000`→`1:30`, `45000`→`0:45`,
+  `300999`→`5:00`.
+
+**Mock driver:** the existing cutoff-overrun scenario, rendered just past 5:00, shows the red and
+LÍMITE EXCEDIDO.
+
+**Visual:** render the six moments at 1920×1080 and compare them against `running-06-final.html`.
+Then check the invariants:
+- the header, who line, band and the clock's position are identical to ARMED's;
+- `displayMs` 300000 renders `#fff` and 300010 renders `--red`;
+- `4:59.99` fits at `--fs-clock` (48.9cqw);
+- there is no `--go` and no `--gold`;
+- the maze does not advance during RUNNING: two frames a second apart are identical.
+
+---
+
+## 7. Open across screens
+
+- **Motion signature:** decide on the first screen that needs one (§2.2), most likely PENDING.
+- **Screens 5–10**, in roadmap order. Next up: **PENDING**, which receives RUNNING's stopped time,
+  the suggested inspection penalty (§5.6) and any over-cutoff time (§6.6).

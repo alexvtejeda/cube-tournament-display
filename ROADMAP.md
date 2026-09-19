@@ -2,8 +2,8 @@
 
 Where this project stands, what is settled, and what is left. Written **2026-09-15** as a
 handoff so a fresh session can pick up without re-deriving anything; updated **2026-09-16**, when
-STANDBY and then ARMED were decided, and **2026-09-18**, when the engine plan and the first screens
-plan were written.
+STANDBY and then ARMED were decided, **2026-09-18**, when the engine plan and the first screens
+plan were written, and **2026-09-19**, when RUNNING was decided.
 
 Target event: **CTF Interuniversitario 2026**, October. 13 universities, one participant each.
 
@@ -14,7 +14,7 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 | What | Path |
 |---|---|
 | System design (approved) | `docs/superpowers/specs/2026-09-15-tournament-display-system-design.md` |
-| UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT, STANDBY and ARMED written; the rest are added screen by screen |
+| UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT, STANDBY, ARMED and RUNNING written; the rest are added screen by screen |
 | Implementation plans | `docs/superpowers/plans/` — the **engine** plan, `2026-09-18-tournament-engine.md` (Phase 2 rows 0–4 and 8, and row 5's key loop), and the first **screens** plan, `2026-09-18-audience-screens.md` (row 6 for ATTRACT, STANDBY and ARMED, and row 7; it runs after the engine plan), are written. A plan for screens 4–10 follows the last screen design |
 | Vendored code + provenance | `vendor/` |
 | Brand assets + university logos | `assets/`, `assets/universidades/` |
@@ -24,7 +24,7 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 
 ⚠ **The mockup HTML is not versioned** — a deliberate choice. Every *asset* those mockups use is
 now committed under `assets/`, and the UI spec transcribes every value a decided screen depends
-on (ATTRACT, STANDBY and ARMED so far). Keep doing that for each new screen, so that directory can
+on (ATTRACT, STANDBY, ARMED and RUNNING so far). Keep doing that for each new screen, so that directory can
 be lost without losing a decision.
 
 ---
@@ -59,15 +59,15 @@ text as well as colour.
 | 1 | **ATTRACT** | Pre-event; room filling; also STANDBY before anyone finishes | ✅ **Decided** — `attract-DECIDED.html` | none — keeps its approved face crop, and the plates follow the roster (UI spec §3.4) |
 | 2 | **STANDBY** | Between competitors; you scramble the cube | ✅ **Decided** — `standby-09-final.html` | none |
 | 3 | **ARMED** | Mat at 0.00; inspection, hands, green light | ✅ **Decided** — `armed-04-final.html` | none |
-| 4 | **RUNNING** | Live solve, clock is the hero | not started | inherits ARMED's layout (UI spec §5.3); cutoff colour steps — `--gold`/`--red` were declined on ARMED, so decide fresh |
-| 5 | **PENDING** | Time frozen, awaiting operator | not started | how visible "awaiting decision" should be to the audience; how the suggested inspection penalty is shown (UI spec §5.6) |
+| 4 | **RUNNING** | Live solve, clock is the hero | ✅ **Decided** — `running-06-final.html` | none — red past the cutoff, clock at 13.6cqw (ARMED's too), hundredths on every mat packet (UI spec §6) |
+| 5 | **PENDING** | Time frozen, awaiting operator | not started | how visible "awaiting decision" should be to the audience; how the suggested inspection penalty is shown (UI spec §5.6); whether a time past the cutoff stays red (§6.6); the motion signature, if PENDING needs one |
 | 6 | **RESULTS** | Podium + all thirteen | draft exists | podium treatment, whether all three attempts are shown |
 | 7 | **NO SIGNAL** | Mat stopped transmitting | draft exists | wording; whether the audience sees it at all |
 | 8 | **SIGNAL CHECK** | Pre-event mic diagnostic (`S`) | not started | waveform rendering, operator-only |
 | 9 | **SETUP** | Mic permission, device picker, resume/fresh | not started | first-run flow; this is where most real failures surface |
 | 10 | **OPERATOR PANEL** | The control surface | not started | layout, roster navigation, signal-health meter; must carry the full standings, the mat instruction and a large scramble (UI spec §4.6), and the inspection state with `Space`/`Esc` (§5.6) |
 
-The settled values for ATTRACT, STANDBY and ARMED, and the shared tokens (radius, five type sizes,
+The settled values for ATTRACT, STANDBY, ARMED and RUNNING, and the shared tokens (radius, five type sizes,
 palette, wording), are in the UI spec. New screens reuse those tokens before adding any of their own.
 
 ---
@@ -103,22 +103,23 @@ independent of UI design and could begin immediately.
 | **Microphone device** | The single most common real failure — the mat is on line-in, the browser defaults to the built-in mic | Device picker on SETUP *and* in the operator panel |
 | **Secure context** | `getUserMedia` fails silently on `file://` | Always serve via `serve.js` |
 | **Extended vs mirrored display** | Two windows want an extended desktop | Degrades gracefully; confirm at the venue |
-| **Mockup HTML unversioned** | The decided mockups are gitignored. Their **assets are in `assets/`** | ATTRACT, STANDBY and ARMED values are transcribed into the UI spec; do the same for every new screen |
+| **Mockup HTML unversioned** | The decided mockups are gitignored. Their **assets are in `assets/`** | ATTRACT, STANDBY, ARMED and RUNNING values are transcribed into the UI spec; do the same for every new screen |
 | **No mic on this dev machine** | WSLg's `RDPSource` delivers zero samples | Mock driver covers all logic; one real session covers the rest |
 
 ---
 
 ## Immediate next step
 
-Brainstorm screen 4 (**RUNNING**) in the visual companion, then continue down the table. RUNNING
-starts from ARMED's layout (UI spec §5.3), so `armed-04-final.html` is its starting point. The engine
-plan touches no screen design, so it can be executed alongside these brainstorms; the first screens
-plan runs after it. Start the companion with:
+Brainstorm screen 5 (**PENDING**) in the visual companion, then continue down the table. PENDING
+follows RUNNING directly, so `running-06-final.html` is its starting point, and UI spec §5.6 and §6.6
+list what it inherits. The engine plan touches no screen design, so it can be executed alongside
+these brainstorms; the first screens plan runs after it. Start the companion with:
 
 ```sh
 ~/.claude/skills/visual-companion/scripts/start-server.sh \
   --project-dir /home/noob_master/cube-tournament-display --session tournament-display
 ```
 
-Existing screens are preserved. `armed-04-final.html` and `standby-09-final.html` are the closest
-references for house style, and the UI spec's §2 holds the shared tokens.
+Existing screens are preserved. `running-06-final.html` and `standby-09-final.html` are the closest
+references for house style, and the UI spec's §2 holds the shared tokens. `armed-04-final.html`
+still shows the old 17.6cqw clock (UI spec §5.9).

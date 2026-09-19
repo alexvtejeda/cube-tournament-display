@@ -1064,7 +1064,7 @@ FAIL  Space starts the countdown on the audience
   --fs-body: 1.38cqw;
   --fs-lead: 2.2cqw;
   --fs-hero: 4.4cqw;
-  --fs-clock: 17.6cqw;
+  --fs-clock: 13.6cqw;
 
   --font: "roc-grotesk-variable", "roc-grotesk", system-ui, sans-serif;
 }
@@ -1664,7 +1664,7 @@ PASS  armed-7: no --gold, and no --red
 PASS  armed-8: 15 · LISTO  (15 · rgb(46, 230, 160) · LISTO · rgb(46, 230, 160))
 PASS  armed-8: --go only on the green light
 PASS  armed-8: no --gold, and no --red
-PASS  4:59.99 fits at --fs-clock  (63.3cqw)
+PASS  4:59.99 fits at --fs-clock  (48.9cqw)
 PASS  the maze moves on ARMED
 PASS  RUNNING shows the debug view, for now
 PASS  the maze holds its frame while the solve runs
