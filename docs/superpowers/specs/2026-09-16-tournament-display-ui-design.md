@@ -1,7 +1,7 @@
 # Tournament Display — UI Design
 
 **Date:** 2026-09-16
-**Status:** In progress — written screen by screen. **ATTRACT**, **STANDBY**, **ARMED** and **RUNNING** are approved; the other six screens are not yet designed
+**Status:** In progress — written screen by screen. **ATTRACT**, **STANDBY**, **ARMED**, **RUNNING** and **PENDING** are approved; the other five screens are not yet designed
 **Scope:** Audience-window screens: layout, copy, visual values, and the data each screen needs from the core
 **Companion spec:** [`2026-09-15-tournament-display-system-design.md`](2026-09-15-tournament-display-system-design.md) (architecture, run loop, scoring, persistence). This is the `tournament-display-ui-design` spec its §13 defers to.
 
@@ -25,7 +25,12 @@ radius introduced during STANDBY was converted to `cqw` for this reason (§2.2).
 | 2 STANDBY | ✅ Approved | **`standby-09-final.html`** (v9) |
 | 3 ARMED | ✅ Approved | **`armed-04-final.html`** (clock size superseded, §5.9) |
 | 4 RUNNING | ✅ Approved | **`running-06-final.html`** |
-| 5–10 | Not yet designed | — |
+| 5 PENDING | ✅ Approved | **`pending-16-final.html`**, with the screen changes in `pending-13-attract-final.html`, `pending-09-best.html` and `standby-11-board-fill.html` (§2.7) |
+| 6–10 | Not yet designed | — |
+
+PENDING's design also changed the shared system (§2.2 motion, §2.5 maze, §2.7 screen changes) and
+STANDBY's standings (§4.9). §9 lists what that means for the two implementation plans already
+written.
 
 ---
 
@@ -46,7 +51,8 @@ plus exactly one new value (locked decision 10).
 | Labels, secondary text, rank numbers, ARMED's waiting countdown | `--violet #aba6f7` | site token |
 | Leader row | `--gold-text #ffea95` | site token |
 | Mascot glow | `--red #EE2737` at 30% | site token |
-| RUNNING's clock and status line past the cutoff | `--red #EE2737` | site token |
+| RUNNING's clock and status line past the cutoff, and PENDING's review of such a time | `--red #EE2737` | site token |
+| Empty standings slot: dashed divider and rank number | `rgba(171,166,247,.45)` | `--violet` at 45% |
 | Plate fill | `#f7f7f7` | site literal (`--grad-lavender`, `sections.css`) |
 | Standings names | `#e8e6ff` | site literal (`sections.css`) |
 | Primary text | `#fff` | — |
@@ -56,15 +62,21 @@ plus exactly one new value (locked decision 10).
 - **`--go` is reserved for the mat's green light.** No idle or status element may use it. The
   STANDBY draft used it for a "CRONÓMETRO LISTO" label; that label was removed. ARMED is the only
   screen so far that uses it, and only while the light is green (§5.2). RUNNING never does (§6.1).
-- **`--red #EE2737` has one text role: RUNNING past the cutoff** (§6.1). It was offered and declined
-  for ARMED's +2 and DNF (§5.2), which stay words only.
+- **`--red #EE2737` has one text role: a time past the cutoff**, on RUNNING (§6.1) and in PENDING's
+  review of it (§7.1). It was offered and declined for ARMED's +2 and DNF (§5.2), which stay words
+  only, and PENDING's verdicts never use it (§7.2).
+- **PENDING gives `#fff` and `--violet` a meaning on the clock:** white is official, violet is
+  provisional (§7.1). A stopped time is violet until the operator's key makes it official.
+- **The empty-slot colour is `--violet` at 45%**, not a new hue. It draws the dashed divider of an
+  empty standings slot and that slot's rank number (§4.2), and nothing else.
 - **`--gold #d4aa06` has no role.** It was declined for ARMED's +2, and again for a warning step
   before RUNNING's cutoff (§6.1).
 - The only colours outside this palette are the cube preview's sticker colours, which come from
   csTimer (§4.5).
 - Contrast on `--bg-deep`: `--violet` 9.41:1 · `#e8e6ff` 16.99:1 · `--gold-text` 17.24:1 · `--go`
   12.79:1 · `--red` 4.92:1, above AA's 4.5:1 even for body-size text. `--violet-deep` is **1.44:1**
-  and must never carry text.
+  and must never carry text. The empty-slot colour is **2.56:1**. It carries only the rank number of
+  an empty slot, a placeholder with nothing to read, so it is exempt the way disabled text is.
 
 ### 2.2 Tokens
 
@@ -75,6 +87,11 @@ plus exactly one new value (locked decision 10).
 --fs-lead:   2.2cqw;   /* ATTRACT tagline, scramble */
 --fs-hero:   4.4cqw;   /* big figures: attempt number, best time (2 × lead) */
 --fs-clock:  13.6cqw;  /* the clock and the inspection countdown */
+
+--ease:      cubic-bezier(.33, 1, .68, 1);  /* the one curve, an ease-out (easeOutCubic) */
+--t-short:   200ms;    /* colour changes; a tag entering or leaving */
+--t-step:    400ms;    /* the step between +2 ticks; quick fades */
+--t-long:    800ms;    /* the redo rewind; every screen change (§2.7) */
 ```
 
 - **Radius.** It was set as `1rem` during design, then converted: `1rem` is a fixed 16px, which is
@@ -97,10 +114,21 @@ plus exactly one new value (locked decision 10).
   (127.02px), **with and without** `tabular-nums`. roc-grotesk's default figures are already
   tabular, so a running clock cannot jitter and no mono fallback is needed. Every time still sets
   `font-variant-numeric: tabular-nums`, which costs nothing and covers the fallback stack.
-- **Motion:** no project-wide motion signature yet. It will be decided on a screen that needs one,
-  most likely PENDING. Screens so far use only the maze and ATTRACT's logo pulse. ARMED and RUNNING
-  add none: their changes are instant, because ARMED's green must match the physical light and
-  RUNNING's red must match the moment the clock passes the cutoff.
+- **Motion signature** (decided with PENDING, 2026-09-19): **one curve and three durations**, the
+  tokens above. Everything that moves or fades uses `--ease`. Durations are `--t-short`,
+  `--t-step` or `--t-long`, and nothing else. The only other motion is the maze and ATTRACT's
+  logo pulse, which keep their own timing (§2.5, §3.2).
+  - **Instant:** anything the mat drives. ARMED's green matches the physical light, RUNNING's red
+    matches the moment the clock passes the cutoff, and the stop freezes the digits (§5.2, §6.1).
+    Digits and words that change in place are also instant: the +2 ticks and every status-line
+    swap.
+  - **`--t-short`:** the clock's colour changes in PENDING, and the verdict's tag entering and
+    leaving (§7.2).
+  - **`--t-step`:** the gap between the +2 ticks, the wait before the standings update, and
+    ATTRACT's plates fading out (§2.7, §7.2).
+  - **`--t-long`:** the redo rewind (§7.2), and every screen change and standings update (§2.7).
+  - **`prefers-reduced-motion: reduce`** turns all of it into cuts. Screen changes and standings
+    updates happen at once, and a verdict shows its landed frame straight away (§7.2).
 
 ### 2.3 University plate
 
@@ -133,18 +161,118 @@ edge, offset by `0.136 × 61.83/68.14 = 0.1234 × width`.
 ### 2.5 Maze
 
 `vendor/hero-maze3d.js` renders into a full-bleed canvas at the bottom of the stack. It runs live on
-ATTRACT, STANDBY and ARMED, and is frozen only during RUNNING (locked decision 8). On ARMED that was
-a choice: it keeps moving through inspection and freezes the moment the solve starts. Only one maze
-can run per page (it looks up `#hero-canvas` by id) until the `createMaze({canvas})` refactor lands.
+ATTRACT, STANDBY and ARMED, and is frozen from the moment the solve starts (locked decision 8) until
+the screen leaves PENDING. On ARMED that was a choice: it keeps moving through inspection and freezes
+the moment the solve starts. It stays frozen through PENDING's review and its verdict, and resumes
+with the screen change to Mezcla or Resultado (§7.1), so nothing moves behind the verdict. The rule
+is **frozen while `phase` is RUNNING or PENDING, or while a verdict is on screen**. Only one maze can
+run per page (it looks up `#hero-canvas` by id) until the `createMaze({canvas})` refactor lands.
 
 ### 2.6 Wording
 
 Spanish throughout.
 
-- **DNF** is the audience word for a single attempt with no valid time (ARMED §5.2, and PENDING and
-  RESULTS when they are designed).
+- **DNF** is the audience word for a single attempt with no valid time (ARMED §5.2, PENDING §7.2,
+  and RESULTS when it is designed).
+- PENDING's status-line wording is in §7.3. It was chosen to be easy to change later, so each
+  string lives in one place in the view code.
 - **`—` with SIN TIEMPO VÁLIDO** is for a university with no valid time at all (§4.2, locked
   decision 4).
+
+### 2.7 Screen changes
+
+Decided with PENDING (2026-09-19). Mockups: `pending-06-morph.html` (Mezcla ⇄ ARMED and the verdict →
+Mezcla, where 800 ms was chosen over 400 ms), `pending-08-all-transitions.html` (every change),
+`pending-13-attract-final.html` (ATTRACT → Mezcla), `pending-09-best.html` (the verdict → Resultado)
+and `standby-11-board-fill.html` (the standings update).
+
+**The rule: anything with the same identity on both screens moves to its new place and size over
+`--t-long`, and everything else fades.** Identity means *the same thing*, not the same kind of
+thing. A different university's plate is a different element, so when Resultado hands over to the
+next university's Mezcla, the two plates crossfade in place instead of one moving.
+
+**When a change runs.** The audience screens fall into three layout families:
+
+| Family | Screens |
+|---|---|
+| attract | ATTRACT |
+| standby | Resultado, Mezcla |
+| solo | ARMED, RUNNING, PENDING (the review and the verdict) |
+
+A screen change runs when the family changes, or, within *standby*, when the screen (Resultado or
+Mezcla) or the featured university changes. Within *solo* it never runs. The mat drives those
+changes, and they stay instant (§2.2): ARMED → RUNNING → PENDING, and a mat reset during a verdict,
+which goes straight to ARMED.
+
+**Identities.** Each is a `view-transition-name`, unique on the page:
+
+| Element | Name | Where it appears |
+|---|---|---|
+| CTF logo | `logo` | ATTRACT's hero (30cqw wide), every header (3.2cqw tall) |
+| A university's plate | `plate-<teamId>` | ATTRACT's grid (**only the called university's**, see below), Resultado and Mezcla (22cqw), solo (13cqw) |
+| Participant name | `name-<teamId>` | Resultado's and Mezcla's name line, solo's second who line |
+| Divider | `rule` | the left edge of Resultado's and Mezcla's figure block, and of solo's text block |
+| Section label | `label` | RESULTADO / A CONTINUACIÓN |
+| INTENTO | `attempt-word` | Mezcla's label above the figure, and solo's who line |
+| The attempt number | `attempt-n` | Mezcla's `--fs-hero` figure, and solo's who line (bold) |
+| DE {n} | `attempt-of` | Mezcla's small suffix, and solo's who line |
+| The clock, as the best time | `time` | PENDING's clock and Resultado's MEJOR TIEMPO figure, **only when the decided attempt set the best time** (§7.2) |
+| Band | `band` | every screen except ATTRACT |
+| A standings row | `standing-name-<teamId>`, `standing-time-<teamId>` | the standings column |
+| ATTRACT's plates and footer | `attract-plates`, `attract-footer` | ATTRACT, when it leaves |
+
+On ATTRACT, only the plate of the university being called carries `plate-<teamId>`. The other
+twelve stay unnamed inside `attract-plates`, so they move with the grid. A named plate would be
+pulled out of the grid and fade on its own.
+
+**Markup this needs.** A named element must be one box, so each is an element of its own, and
+inline pieces are `inline-block`:
+- the divider is a 1px element in `--violet-deep`, positioned along the block's left edge, instead of
+  a `border-left`, so it can stretch between the figure block's height and the text block's;
+- solo's who line holds `INTENTO`, the number and `DE {n}` as three elements, and the name as one;
+- PENDING's digits are one element, apart from the verdict's tag (§7.2).
+
+**Entering and leaving.** By default an element that exists only on the old screen fades out, and
+one that exists only on the new screen fades in, over `--t-long`. Two exceptions, both on ATTRACT →
+Mezcla:
+- **The band rises** from the stage's bottom edge: `translateY(100%)` → `0` over `--t-long`, with no
+  fade, clipped to its own box (`overflow: clip` on its group and image pair). It enters this way
+  only when it has no old counterpart, `::view-transition-new(band):only-child`. On every other
+  change it exists on both screens and stays put.
+- **The plates and the footer are pushed up** by the band's height as it rises: they move
+  `10.95cqw` up over `--t-long`, and fade out over the first `--t-step`:
+  `@keyframes { 50% { opacity: 0 } to { opacity: 0; transform: translateY(calc(-.1095 * var(--stage-w))) } }`.
+  View-transition pseudo-elements have no container, so `cqw` cannot reach them. `--stage-w` is
+  the stage's own width expression, `min(100vw, calc(100vh * 16 / 9))`, set on `:root`.
+
+**The changes, one by one:**
+
+| Change | Trigger | What moves |
+|---|---|---|
+| ATTRACT → Mezcla | the first N | the logo shrinks into the header, and the called plate leaves the grid for Mezcla's; the band rises and the grid and footer are pushed up |
+| Mezcla ⇄ ARMED | a mat reset; N or ←/→ before a solve | plate, divider, `INTENTO · n · DE {n}`, name. After N it's a different university, so its plate and name crossfade |
+| ARMED → RUNNING → PENDING | the mat | nothing (same family, instant) |
+| The verdict → Mezcla | the verdict ends, attempts 1 and 2 | plate, divider, `INTENTO · n · DE {n}`, name. The number crossfades from the decided attempt to the next on the way |
+| The verdict → Resultado | the verdict ends, attempt 3 | plate, divider and name. The clock shrinks into MEJOR TIEMPO when it holds the best time, and fades otherwise |
+| Resultado → Mezcla | N | the divider and the label, whose words crossfade in place; the next university's plate and name crossfade in |
+| Mezcla → Mezcla | ←/→ | as Resultado → Mezcla |
+| Mezcla or Resultado → PENDING | U | the same moves, in reverse. The maze freezes (§2.5) |
+| The verdict → ARMED | a mat reset during the verdict | nothing (same family, instant) |
+
+**Standings updates.** When the standings change while a *standby* screen is up, the update runs as
+its own transition over `--t-long`. Each university's name and time move to their new slot by
+identity. **Rank numbers and slot dividers belong to the slots**, so they never move. A slot that
+fills changes its divider from dashed to solid in place (§4.2). A university entering the board fades
+into its slot, one pushed below 8th fades out of slot 8, and an improved time crossfades while it
+moves up. After a verdict, the board first arrives **as it was before the decision**
+(`standingsBefore`, §7.5), and updates `--t-step` after the screen change ends. A decision that
+changes nothing (a DNF, a slower time, a redo) moves nothing.
+
+**Implementation.** The browser's View Transitions API (`document.startViewTransition`), in Chrome
+or Edge 111+. The audience window runs its DOM update inside it when the rules above call for a
+transition, and patches in place otherwise, as before. A change that arrives while a transition is
+running ends that transition early, which the browser does on its own. With no API support, or with
+`prefers-reduced-motion: reduce`, every change is a cut (§2.2).
 
 ---
 
@@ -207,6 +335,10 @@ university has finished (§4.1).
    previous crop as `assets/rootkitty-face-attract.svg`, so the values in §3.2 stand unchanged.
 3. **Plate order** follows the roster (decided 2026-09-18). The approved mockup put UCE before UCSD.
    `config/event.json`, generated from the CTF database, has UCSD first, and it also sets the turns.
+4. **Leaving ATTRACT is animated** (decided 2026-09-19 with PENDING, §2.7). On the first N, the logo
+   shrinks into Mezcla's header, the called university's plate leaves the grid for Mezcla's, and the
+   band rises from the bottom edge. The other plates and the footer are pushed up by the band's
+   height and fade out over `--t-step`. ATTRACT itself looks the same.
 
 ---
 
@@ -231,11 +363,11 @@ The screen has two visual states, chosen by `snapshot.phase` and `snapshot.resul
 | SCRAMBLE | — | **Mezcla** for the selected university, attempt `attemptNo` |
 
 Transitions (system design §5):
-- Accepting or DNF-ing attempt 3 shows **Resultado**, which stays up until the operator presses
-  `N`. There is **no timeout**.
+- Accepting or DNF-ing attempt 3 shows **Resultado**, after PENDING's 3 s verdict (§7.2). It stays
+  up until the operator presses `N`. There is **no timeout**.
 - `N` shows **Mezcla**, attempt 1, with a fresh scramble.
 - Accepting attempt 1 or 2 shows **Mezcla** for the next attempt with a new scramble (the existing
-  auto-arm).
+  auto-arm), after the verdict. A redo shows Mezcla for the same attempt.
 - Resetting the mat to 0.00 leaves for ARMED (§5).
 
 At event start the operator's first `N` goes straight from ATTRACT to Mezcla, so ATTRACT needs no
@@ -288,18 +420,26 @@ number completed. This stays correct when the operator skips around the roster w
      the roster has no participant name.
 
 - **Side column.** Padding `1.9cqw`. The label `CLASIFICACIÓN · MEJOR DE {attemptsPerCompetitor}`
-  has `margin-bottom 1cqw`, followed by up to 8 rows from `snapshot.standings` (§4.3).
+  has `margin-bottom 1cqw`, followed by **8 slots, always** (changed 2026-09-19, §4.9). The
+  ranked universities in `snapshot.standings` (§4.3) fill them from the top, and the rest are
+  empty slots.
   - **Row:** grid `2.2cqw 1fr auto`, `gap .85cqw`, `align-items: baseline`, `padding .38cqw 0`,
     `--fs-body`, `border-bottom 1px rgba(35,31,102,.5)`. The row pitch is 2.91cqw, and the column
     fits 11 rows, so 8 always fit.
   - **Cells:** rank in `--violet` 700; name in `#e8e6ff` with ellipsis overflow (UNICARIBE, the
     longest, fits); time with `tabular-nums` 500.
   - **Leader (row 1):** all three cells in `--gold-text` 800, on `rgba(171,166,247,.1)`, with
-    `margin 0 -.8cqw`, `padding-inline .8cqw` and `border-radius var(--radius)`.
+    `margin 0 -.8cqw`, `padding-inline .8cqw` and `border-radius var(--radius)`. Only once slot 1
+    holds a university; an empty slot 1 is an ordinary empty slot.
   - **Featured university** (`result.teamId` in Resultado, the selected team in Mezcla): name in
     `#fff` 800 **when it is in the slice**. It is never pinned or added when it is not.
-  - **Empty slice:** a single line, **"Aún no hay tiempos"**, in `--fs-body` `--violet`.
-  - **Fewer than 8 ranked:** the list is simply shorter, with no filler rows.
+  - **Empty slot:** the row's grid and pitch with its rank number, no name and no time. Its rank
+    number and its divider are in the empty-slot colour, `rgba(171,166,247,.45)` (§2.1), and the
+    divider is **dashed**:
+    `border-bottom-color: transparent; background: repeating-linear-gradient(90deg, rgba(171,166,247,.45) 0 .55cqw, transparent .55cqw .95cqw) left bottom / 100% 1px no-repeat`.
+    A slot that fills keeps its place, and its divider turns solid.
+  - **Nobody ranked:** eight empty slots. The "Aún no hay tiempos" line is gone.
+  - The dashes are lines, never the `—` character, which keeps its one meaning (§2.6, §4.3).
 
 **Band.** Full width, flex, `align-items: center`, `gap 2.2cqw`, **`padding 2.2cqw`**,
 `border-top 1px --violet-deep`, background `rgba(2,1,12,.72)`. Its height is **10.95cqw in both
@@ -392,7 +532,8 @@ These came up while designing STANDBY. Screen 10 is not designed here.
 
 | Case | Behaviour |
 |---|---|
-| First university, Mezcla, nobody ranked | Side column shows "Aún no hay tiempos" |
+| First university, Mezcla, nobody ranked | Side column shows eight empty slots |
+| Fewer than 8 ranked | They fill slots 1 to k, and slots k+1 to 8 are empty |
 | Featured university ranked 9th or lower | Not in the list. Resultado says `PUESTO {n}` |
 | Featured university in the top 8 | Its row is bold `#fff`. If it leads, the leader style applies |
 | All three attempts DNF | Resultado shows `—` and `SIN TIEMPO VÁLIDO`. The university is absent from the list |
@@ -421,11 +562,31 @@ These came up while designing STANDBY. Screen 10 is not designed here.
   - all-DNF gives `bestMs` and `position` of `null`.
 
 **Visual:** render Resultado, the all-DNF variant and Mezcla at 1920×1080 and compare them against
-`standby-09-final.html`. Then check the four invariants:
+`standby-09-final.html`, and the empty and part-filled standings against
+`standby-10-placeholder-rows.html` (option B). Then check the invariants:
 - the band is the same height in both states;
 - a 21-move scramble stays on one line;
 - the mascot's cut sits inside the band;
-- no `--go` anywhere on the screen.
+- no `--go` anywhere on the screen;
+- the standings column always holds 8 slots, and an empty slot is as tall as a filled one;
+- no `—` character appears in the standings column.
+
+### 4.9 Changes since STANDBY was approved
+
+Decided on 2026-09-19, while PENDING was designed. Mockups: `standby-10-placeholder-rows.html`
+(options A, B and C; **B** was chosen) and `standby-11-board-fill.html` (the update).
+
+1. **The standings column always holds 8 slots** (§4.2). Empty slots show their rank number and a
+   dashed divider in the empty-slot colour, so the board is visibly waiting to be filled. This
+   replaces the "Aún no hay tiempos" line and the list that grew row by row. Fill-in lines under the
+   name and the time (A) and dashed outlines (C) were the alternatives.
+2. **The standings update where the room can see it** (§2.7). After a verdict, the board arrives as
+   it was before the decision, then universities move to their new slots.
+3. **Screen changes move shared elements** (§2.7): N from ATTRACT, N from Resultado, ←/→, and the
+   mat reset into ARMED. The figure block's divider is drawn as its own element for this.
+
+`audienceStandings` (§4.3) is unchanged. It still returns at most 8 ranked universities, and the view
+draws the empty slots.
 
 ---
 
@@ -594,7 +755,8 @@ This extends §4.4. The audience window still holds no state of its own.
 These came up while designing ARMED. The screens themselves are not designed here.
 
 1. **PENDING (screen 5):** the operator sees the attempt's `suggestedPenalty` together with its
-   `inspectionMs`. Whether the audience sees the suggestion is PENDING's own question.
+   `inspectionMs`. Whether the audience sees the suggestion is PENDING's own question. **Resolved in
+   §7.1:** it does not. The room sees only the verdict.
 2. **RUNNING (screen 4):** keeps ARMED's layout (§5.3). `--gold` and `--red` were declined for ARMED,
    so the cutoff colours near and past 5:00 were an open decision, not an inherited one. **Resolved
    in §6.1:** red past the cutoff, with no warning step.
@@ -647,6 +809,10 @@ Then check the invariants:
 1. **Clock size** `17.6cqw` → `13.6cqw` (§2.2), decided on 2026-09-19 while RUNNING was viewed at
    full screen. ARMED's countdown and RUNNING's clock share `--fs-clock`, so the digits keep their
    size when the solve starts (§5.3). `armed-04-final.html` still shows 17.6; this spec wins (§1).
+2. **Screen changes into and out of ARMED move shared elements** (§2.7, decided 2026-09-19 with
+   PENDING). The plate, the divider, `INTENTO · n · DE {n}` and the name travel between Mezcla's
+   places and ARMED's. For that, the text block's divider is its own element, and the who line holds
+   its pieces as separate elements. ARMED itself looks the same.
 
 ---
 
@@ -747,6 +913,8 @@ These came up while designing RUNNING. The screens themselves are not designed h
 
 1. **PENDING (screen 5):** it is where the suggested inspection penalty first appears (§5.6). It also
    receives stopped times past the cutoff, and decides whether RUNNING's red carries over.
+   **Resolved in §7.1:** the suggestion reaches only the operator, and the red holds through the
+   review.
 2. **OPERATOR PANEL (screen 10):** no key acts during RUNNING. A mat reset to 0.00 mid-solve leaves
    RUNNING up at 0.00 until the mat runs and stops again (§6.7), so the panel should make that state
    recognisable. Whether the operator needs a way out of RUNNING is a core question for then.
@@ -783,8 +951,291 @@ Then check the invariants:
 
 ---
 
-## 7. Open across screens
+## 7. Screen 5 — PENDING
 
-- **Motion signature:** decide on the first screen that needs one (§2.2), most likely PENDING.
-- **Screens 5–10**, in roadmap order. Next up: **PENDING**, which receives RUNNING's stopped time,
-  the suggested inspection penalty (§5.6) and any over-cutoff time (§6.6).
+**Purpose:** the mat has stopped on a time, and the operator decides whether it counts. PENDING is an
+unconditional gate (system design §5). The screen covers the **review**, until the operator's key,
+and the **verdict** the room sees for 3 s after it.
+**Mockup:** **`pending-16-final.html`**. The top shows the four keys live, each from RUNNING through
+the verdict, the screen change and the standings update. The bottom shows the stills the loop
+doesn't reach. The history runs through `pending-01-waiting.html` (the review, option C),
+`pending-02-verdict.html` (replace or annotate: the clock became the result, and the tag was kept),
+`pending-03-plus2.html` (how the +2 is added, option C), `pending-04-beat.html` (the whole verdict),
+`pending-05-redo.html` (the rewind, option B) and `pending-07-cutoff.html` (past the cutoff, option
+A), plus the screen-change mockups in §2.7. They load the same mockup-only files as STANDBY (§4),
+and the live ones need the View Transitions API.
+
+### 7.1 The review
+
+While `phase === 'PENDING'`:
+
+| Condition | Clock | Status line |
+|---|---|---|
+| `displayMs ≤ cutoffMs` | `formatMs(displayMs)` in `--violet` | **EN REVISIÓN**, `--violet` |
+| `displayMs > cutoffMs` | `formatMs(displayMs)` in `--red` | **LÍMITE EXCEDIDO · EN REVISIÓN**, `--red` |
+
+- **Layout:** RUNNING's, unchanged (§6.2), so the room's eyes don't move when the mat stops.
+- **White is official, violet is provisional.** The digits freeze the instant the mat stops, since
+  the mat drives the stop. The colour then goes from `#fff` to `--violet` over `--t-short`.
+- **Past the cutoff, the red holds** from RUNNING. It is still true, and it is the likely reason for a
+  DNF. Red means "past the cutoff", the more specific state, the way ARMED's green outranks white.
+- **The room never sees the suggested inspection penalty** (§5.6). A penalty is shown only once the
+  operator applies it, in the verdict. ARMED's countdown has already shown `+2` or `DNF` when the
+  start was late. The operator sees the suggestion (§7.7).
+- **The maze stays frozen** (§2.5).
+
+### 7.2 The verdict
+
+The operator's key records the decision, and the phase moves on at once: SCRAMBLE with the next
+scramble, or STANDBY after attempt 3 (system design §5). The audience keeps PENDING's layout and
+shows the **verdict** for `VERDICT_MS` (3000 ms) from the key, then changes screen (§2.7).
+
+**The grammar:** the clock becomes the result, and white means official. A penalty is announced by a
+tag beside the time, then applied to the clock. `--go`, `--gold` and `--red` never appear in a
+verdict.
+
+| Key | At the key | +300 ms | +700 ms | Landed | Status line |
+|---|---|---|---|---|---|
+| Space | the colour change starts | — | — | the time, `#fff` (after `--t-short`) | TIEMPO VÁLIDO |
+| 2 | the `+2` tag enters | the seconds step +1 | the seconds step +1 again; lands | `formatMs(ms + 2000)`, `#fff` | PENALIZACIÓN +2 |
+| D | the `DNF` tag enters | — | `DNF` replaces the time; lands | `DNF`, `#fff` | per §7.3 |
+| R | — | the rewind starts | … | `0.00`, `--violet`, at +1100 ms | ANULADO · SE REPITE |
+
+- **Two schedule points** belong to the verdict: **+300 ms**, when the tag has entered
+  (`--t-short`) and had a moment to be read, and **+700 ms**, one `--t-step` later, when the +2 and
+  the DNF land. They are offsets, not durations, so the motion signature still has three durations.
+- **The status line** changes to the verdict's words at the key. It is `--violet`, and the change is
+  instant.
+- **The clock's colour until it lands** is `--violet`. A time past the cutoff turns from `--red` to
+  `--violet` at the key, over `--t-short`, because the review is over. It turns `#fff` when it lands,
+  over `--t-short`. A redo never lands as official, so its clock stays `--violet`.
+- **The tag** (`+2` or `DNF`): `--fs-hero`, 800, `#fff`, `letter-spacing -.01em`, positioned outside
+  the flow at the clock's right edge (`position: absolute; left: 100%; top: .06em; margin-left:
+  .12em`), so the clock never re-centres because of it. It enters with `opacity 0 → 1` and
+  `translateY(.25em) → 0` over `--t-short`. When the verdict lands it leaves with `opacity → 0` and
+  `translateX(-.35em)` over `--t-short`, sliding into the clock.
+- **The +2 ticks** are two instant text swaps, `formatMs(ms + 1000)` at +300 ms and
+  `formatMs(ms + 2000)` at +700 ms. The hundredths never change. If the +2 carries the time past
+  `10.00` or `1:00.00`, the clock gains characters and re-centres, as on RUNNING (§6.2).
+- **The redo rewind** starts at +300 ms and runs over `--t-long` with `--ease`, drawn every frame:
+  `formatMs(round10(ms × (1 − ease(p))))`. It re-centres as it loses characters, and lands on `0.00`,
+  which is what the mat will show once it is reset for the repeat.
+- **Who line:** the decided attempt's number (`verdict.attempt`), not the next one.
+- **Band:** from the key it shows the snapshot's scramble, which is the next attempt's (auto-arming,
+  system design §5). After attempt 3 there is none, so it shows Resultado's wait line and the empty
+  cube slot (§4.2).
+- **After the verdict:** the screen changes to Mezcla (attempts left, including after a redo) or to
+  Resultado (after attempt 3), per §2.7. On the way to Resultado, the clock carries `time` and shrinks
+  into MEJOR TIEMPO **when the decided attempt set the university's best time**: the kind is `OK` or
+  `+2`, and its effective time equals `result.bestMs`. A tie counts, because the number is the same.
+  Otherwise the clock fades and MEJOR TIEMPO fades in.
+- **A window that did not see the review** renders the landed frame without animating: an audience
+  window opened mid-verdict, or one whose previous screen was not this attempt's review. Under
+  `prefers-reduced-motion`, every verdict shows its landed frame at once, with no tag.
+
+### 7.3 Wording
+
+| When | Status line |
+|---|---|
+| Review | **EN REVISIÓN** |
+| Review, past the cutoff | **LÍMITE EXCEDIDO · EN REVISIÓN** |
+| Space | **TIEMPO VÁLIDO** |
+| 2 | **PENALIZACIÓN +2** |
+| D | **INTENTO INVÁLIDO** |
+| D, the time past the cutoff | **LÍMITE EXCEDIDO** |
+| D, inspection past 17 s | **INSPECCIÓN EXCEDIDA**, ARMED's own words (§5.2) |
+| R | **ANULADO · SE REPITE** |
+
+- A DNF past both the cutoff and 17 s of inspection reads LÍMITE EXCEDIDO, because the room watched
+  the red.
+- The status line keeps RUNNING's type: `--fs-body`, `.24em`, regular weight. The longest string,
+  LÍMITE EXCEDIDO · EN REVISIÓN, fits easily.
+- Each string is defined once in the view code, so the wording can change without touching the rules
+  (§2.6).
+
+### 7.4 Layout
+
+**RUNNING's, unchanged** (§6.2), which is ARMED's (§5.3): the background, header, who line, clock,
+status line and band keep their places and sizes. PENDING adds only the tag element (§7.2). With the
+widest clock the cutoff allows, the tag ends well inside the stage: `4:59.99` spans 25.6–74.4cqw, and
+a `DNF` tag adds about 9cqw.
+
+### 7.5 Core
+
+Pure, in `js/core/`, tested with `node --test`.
+
+**Constants.** `VERDICT_MS = 3000`, from the key to the screen change.
+`STANDINGS_UPDATE_MS = VERDICT_MS + 800 + 400`: the screen change (`--t-long`), then the pause
+(`--t-step`). The two numbers mirror the motion tokens (§2.2), and a comment should tie them
+together.
+
+**Run state** gains `lastDecision`, which is not persisted:
+
+```js
+lastDecision: {
+  kind,    // 'OK' | '+2' | 'DNF' | 'REDO'
+  teamId, attempt,
+  ms,      // pendingMs, the stopped time, without the penalty
+  reason,  // DNF only: 'CUTOFF' | 'INSPECTION' | null. Otherwise null
+  at,      // the key's timestamp
+} | null
+```
+
+- `accept`, `plus2`, `dnf` and `redo` in PENDING set it.
+- It is cleared by every other command (N, ←/→, U, `Space` for inspection, `Esc`), and by
+  SCRAMBLE → ARMED. So the last attempt in the log is always the decided one while it is set.
+- `reason`, for a DNF: `'CUTOFF'` when `ms > cutoffMs`, otherwise `'INSPECTION'` when
+  `suggestedPenalty(inspectionMs) === 'DNF'`, otherwise `null`.
+
+**Derived** from state and `now` by `buildSnapshot`:
+
+- `verdict`: `{ kind, teamId, attempt, ms, reason }` while `now - at < VERDICT_MS`, otherwise `null`.
+- `standingsBefore`: `audienceStandings(standings(undoLast(event).event), 8)` while
+  `now - at < STANDINGS_UPDATE_MS` and `kind !== 'REDO'`, otherwise `null`. A redo records nothing,
+  so the board has nothing to update.
+
+**Timing without the mat.** Snapshots follow the mat's packets, but the verdict's end must not wait
+for one. The operator window also re-publishes at `at + VERDICT_MS` and at
+`at + STANDINGS_UPDATE_MS`.
+
+### 7.6 Snapshot changes
+
+This extends §5.5. The audience window still holds no state of its own.
+
+```js
+{
+  phase, competitor, attemptNo, displayMs, cutoffMs, scramble, scrambleSvg, signal, standings, result,
+  inspectionMs, hands,
+  verdict,          // NEW: { kind, teamId, attempt, ms, reason } for VERDICT_MS after a decision, or null
+  standingsBefore,  // NEW: the audience standings without the last recorded attempt, or null
+}
+```
+
+- `screenFor` shows PENDING's layout for `phase === 'PENDING'`, and for SCRAMBLE or STANDBY while
+  `verdict !== null`.
+- A verdict finds its university by `verdict.teamId` in `snapshot.teams`, because `competitor` is
+  `null` in STANDBY.
+- The standings column draws `standingsBefore ?? standings`.
+
+### 7.7 Requirements for other screens
+
+These came up while designing PENDING. The screens themselves are not designed here.
+
+1. **OPERATOR PANEL (screen 10):** in PENDING, the stopped time, whether it is past the cutoff,
+   `inspectionMs` and `suggestedPenalty` (§5.6), and the four keys: `Space` accept, `2` +2, `D` DNF,
+   `R` redo. During the verdict, the panel should show what the room is seeing, and that the next
+   scramble is ready. A mat reset during the verdict ends it (§7.8).
+2. **RESULTS (screen 6):** follows §2.7. Whether RESULTS reuses the idea that the time moves into
+   its place is its own question.
+3. **NO SIGNAL (screen 7):** it takes over during the review or the verdict like anywhere else. The
+   verdict's 3 s keep running in the core, so when the signal returns, whatever is current is shown.
+
+### 7.8 Edge cases
+
+| Case | Behaviour |
+|---|---|
+| Mat reset during the verdict | ARMED at once. `lastDecision` is cleared. Same family, so no screen change runs (§2.7) |
+| N or ←/→ during the verdict (after attempt 1 or 2) | `lastDecision` is cleared, and Mezcla for the chosen university follows §2.7 |
+| U during or after the verdict | PENDING reopens under EN REVISIÓN with the same time. The maze freezes, and the change from Mezcla or Resultado runs in reverse (§2.7) |
+| Attempt 3 decided | At the key the band shows the wait line. After 3 s, Resultado |
+| +2 carries the time past 1:00.00 (`58.50`) | The second tick reads `1:00.50`, and the clock re-centres |
+| +2 on a time past the cutoff | Red in review, violet from the key, the ticks, lands `#fff` under PENALIZACIÓN +2 |
+| Accepting a time past the cutoff | Lands `#fff` under TIEMPO VÁLIDO. The cutoff warns, it doesn't decide (system design decision 5) |
+| DNF past both the cutoff and 17 s | LÍMITE EXCEDIDO |
+| Attempt 3 ties the best | The clock moves into MEJOR TIEMPO |
+| Attempt 3 is a DNF, an earlier attempt is OK | The clock fades, and MEJOR TIEMPO fades in |
+| All three DNF | Resultado with `—` and SIN TIEMPO VÁLIDO (§4.2). The clock fades |
+| Audience window opened mid-verdict | The landed frame, with no animation (§7.2) |
+| Operator window reloaded mid-verdict | `lastDecision` isn't persisted, so there is no verdict. The attempt is on disk, and the screen is Mezcla or Resultado |
+| Roster has no participant name | Name line omitted, as on ARMED |
+| `prefers-reduced-motion: reduce` | Landed frames at once, and every screen change is a cut |
+| Signal lost | NO SIGNAL (screen 7) takes over |
+
+### 7.9 Testing
+
+**Core (`node --test`):**
+
+- **`lastDecision`:**
+  - `accept`, `plus2`, `dnf` and `redo` set it, with the attempt number, the stopped time (no
+    penalty) and the key's timestamp;
+  - N, ←/→, U, `Space`, `Esc` and SCRAMBLE → ARMED clear it.
+- **`reason`:** a DNF at `cutoffMs + 10` → `CUTOFF` · at exactly `cutoffMs` → not `CUTOFF` · with
+  `inspectionMs` 17001 → `INSPECTION` · both → `CUTOFF` · `OK`, `+2` and `REDO` → `null`.
+- **`buildSnapshot`:**
+  - `verdict` is present at `at + 2999` and `null` at `at + 3000`;
+  - `standingsBefore` is present at `at + 4199` and `null` at `at + 4200`, is `null` after a redo,
+    and equals the audience standings without the last attempt.
+
+**Audience view (pure, `node --test`):**
+
+- the review's colour and words, under and past the cutoff;
+- each verdict's landed frame and words, including both DNF reasons;
+- the `time` identity is set for `OK` or `+2` equal to `result.bestMs` (a tie too), and absent for a
+  DNF or a slower time;
+- `screenFor` gives PENDING's layout for SCRAMBLE or STANDBY with a verdict;
+- the standings column draws 8 slots, and prefers `standingsBefore`.
+
+**Mock driver scenarios:** a clean solve then each of `Space`, `2`, `D` and `R` · a cutoff overrun
+then `D` · a start past 17 s of inspection then `D`.
+
+**Visual:** render the review, each landed verdict and the stills at 1920×1080, and compare them
+against `pending-16-final.html`. Then check the invariants:
+- the header, who line, band and the clock's position are identical to RUNNING's;
+- the tag never moves the clock;
+- there is no `--go` and no `--gold`, and `--red` appears only in the review of a time past the
+  cutoff;
+- the maze does not advance during the review and the verdict: two frames a second apart are
+  identical;
+- the screen changes 3 s after the key, and under `prefers-reduced-motion` it is a cut.
+
+**Screen changes (browser):** a view transition runs on each change in §2.7's table, none runs
+within the *solo* family, and every name §2.7 lists for a change exists on both sides of it.
+
+---
+
+## 8. Open across screens
+
+- **Screens 6–10**, in roadmap order. Next up: **RESULTS** (the podium and all thirteen). It follows
+  the motion signature (§2.2) and the screen-change rule (§2.7).
+
+---
+
+## 9. Changes to the implementation plans
+
+The engine plan (`plans/2026-09-18-tournament-engine.md`) and the first screens plan
+(`plans/2026-09-18-audience-screens.md`) were written before PENDING was designed, and neither has
+been executed. **Both must be amended before they are executed.** The amendments are made in the
+plan phase that follows this spec. They are listed here so that nothing is lost.
+
+**Engine plan:**
+
+1. **Task 9** (the run state, decisions): `lastDecision` (§7.5). It starts as `null` in
+   `createState`, is set in `decide` and in `redo` (which must keep `pendingMs` for it before
+   clearing), and is cleared by every other command and by SCRAMBLE → ARMED. Also its `reason`, from
+   `suggestedPenalty` and `cutoffMs`, and the tests in §7.9.
+2. **Task 11** (the snapshot): `verdict` and `standingsBefore` in `buildSnapshot`, with
+   `VERDICT_MS` and `STANDINGS_UPDATE_MS`, and their tests.
+3. **Task 12** (the mock driver): the scenarios in §7.9.
+4. **Task 17** (the two windows): the operator window re-publishes at `at + VERDICT_MS` and at
+   `at + STANDINGS_UPDATE_MS` (§7.5). The debug view keeps drawing PENDING until the screens replace
+   it, and can ignore `verdict`.
+
+**Screens plan:**
+
+1. **Scope.** RUNNING and PENDING are now designed. Either this plan grows to include them, or they
+   go to the plan for screens 4–10, as the roadmap has it. That is decided in the plan phase. Either
+   way, the changes below alter what this plan builds for ATTRACT, STANDBY and ARMED.
+2. **Task 4** (the screens, as HTML):
+   - the standings column draws 8 slots with empty slots (§4.2), and the "Aún no hay tiempos" test and
+     code go;
+   - ARMED's who line is split into elements, and the dividers become their own elements;
+   - the identities in §2.7 carry their `view-transition-name`.
+3. **Task 6** (the audience window):
+   - `css/tokens.css` gains the motion tokens (§2.2) and `--stage-w` (§2.7);
+   - `audience.js` runs screen changes and standings updates inside `document.startViewTransition`,
+     by §2.7's families, with the band's rise and the plates' push on leaving ATTRACT;
+   - the maze pauses for RUNNING and PENDING, and while a verdict is on screen (§2.5), not only for
+     RUNNING.
+4. **Task 7** (the 1080p check): STANDBY's new invariants (§4.8), and the empty and part-filled
+   standings against `standby-10-placeholder-rows.html`.
+5. **Spec coverage**, at the end: rows for §2.2's motion signature, §2.7 and §4.9.

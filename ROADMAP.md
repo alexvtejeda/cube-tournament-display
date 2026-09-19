@@ -3,7 +3,7 @@
 Where this project stands, what is settled, and what is left. Written **2026-09-15** as a
 handoff so a fresh session can pick up without re-deriving anything; updated **2026-09-16**, when
 STANDBY and then ARMED were decided, **2026-09-18**, when the engine plan and the first screens
-plan were written, and **2026-09-19**, when RUNNING was decided.
+plan were written, and **2026-09-19**, when RUNNING and then PENDING were decided.
 
 Target event: **CTF Interuniversitario 2026**, October. 13 universities, one participant each.
 
@@ -14,7 +14,7 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 | What | Path |
 |---|---|
 | System design (approved) | `docs/superpowers/specs/2026-09-15-tournament-display-system-design.md` |
-| UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT, STANDBY, ARMED and RUNNING written; the rest are added screen by screen |
+| UI design spec | `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md` — ATTRACT, STANDBY, ARMED, RUNNING and PENDING written; the rest are added screen by screen. §9 lists the amendments PENDING requires of both plans |
 | Implementation plans | `docs/superpowers/plans/` — the **engine** plan, `2026-09-18-tournament-engine.md` (Phase 2 rows 0–4 and 8, and row 5's key loop), and the first **screens** plan, `2026-09-18-audience-screens.md` (row 6 for ATTRACT, STANDBY and ARMED, and row 7; it runs after the engine plan), are written. A plan for screens 4–10 follows the last screen design |
 | Vendored code + provenance | `vendor/` |
 | Brand assets + university logos | `assets/`, `assets/universidades/` |
@@ -24,7 +24,7 @@ Target event: **CTF Interuniversitario 2026**, October. 13 universities, one par
 
 ⚠ **The mockup HTML is not versioned** — a deliberate choice. Every *asset* those mockups use is
 now committed under `assets/`, and the UI spec transcribes every value a decided screen depends
-on (ATTRACT, STANDBY, ARMED and RUNNING so far). Keep doing that for each new screen, so that directory can
+on (ATTRACT, STANDBY, ARMED, RUNNING and PENDING so far). Keep doing that for each new screen, so that directory can
 be lost without losing a decision.
 
 ---
@@ -45,6 +45,9 @@ Do not relitigate these; they were settled deliberately.
 10. **Brand palette** — the CTF site's own tokens, plus exactly one new value, `--go #2ee6a0`
 11. **15-second inspection, shown on the projector** — started by the operator's key; +2 past 15 s and
     DNF past 17 s are *suggested* in PENDING, never applied, and nothing auto-stops (UI spec §5.1)
+12. **One motion signature, and screen changes that move shared elements** — one ease-out curve and
+    200 / 400 / 800 ms; anything with the same identity on both screens moves there over 800 ms, the
+    rest fades; anything the mat drives stays instant (UI spec §2.2, §2.7)
 
 ---
 
@@ -57,18 +60,18 @@ text as well as colour.
 | # | Screen | Purpose | Status | Still open |
 |---|---|---|---|---|
 | 1 | **ATTRACT** | Pre-event; room filling; also STANDBY before anyone finishes | ✅ **Decided** — `attract-DECIDED.html` | none — keeps its approved face crop, and the plates follow the roster (UI spec §3.4) |
-| 2 | **STANDBY** | Between competitors; you scramble the cube | ✅ **Decided** — `standby-09-final.html` | none |
+| 2 | **STANDBY** | Between competitors; you scramble the cube | ✅ **Decided** — `standby-09-final.html` | none — since PENDING, the standings always hold 8 slots with dashed empty ones, and update where the room can see it (UI spec §4.9) |
 | 3 | **ARMED** | Mat at 0.00; inspection, hands, green light | ✅ **Decided** — `armed-04-final.html` | none |
 | 4 | **RUNNING** | Live solve, clock is the hero | ✅ **Decided** — `running-06-final.html` | none — red past the cutoff, clock at 13.6cqw (ARMED's too), hundredths on every mat packet (UI spec §6) |
-| 5 | **PENDING** | Time frozen, awaiting operator | not started | how visible "awaiting decision" should be to the audience; how the suggested inspection penalty is shown (UI spec §5.6); whether a time past the cutoff stays red (§6.6); the motion signature, if PENDING needs one |
+| 5 | **PENDING** | Time frozen, awaiting operator | ✅ **Decided** — `pending-16-final.html` | none — violet under EN REVISIÓN (red past the cutoff); a 3 s verdict with the +2 and DNF tags and the redo rewind; the motion signature and the screen-change rule (UI spec §7, §2.2, §2.7) |
 | 6 | **RESULTS** | Podium + all thirteen | draft exists | podium treatment, whether all three attempts are shown |
 | 7 | **NO SIGNAL** | Mat stopped transmitting | draft exists | wording; whether the audience sees it at all |
 | 8 | **SIGNAL CHECK** | Pre-event mic diagnostic (`S`) | not started | waveform rendering, operator-only |
 | 9 | **SETUP** | Mic permission, device picker, resume/fresh | not started | first-run flow; this is where most real failures surface |
-| 10 | **OPERATOR PANEL** | The control surface | not started | layout, roster navigation, signal-health meter; must carry the full standings, the mat instruction and a large scramble (UI spec §4.6), and the inspection state with `Space`/`Esc` (§5.6) |
+| 10 | **OPERATOR PANEL** | The control surface | not started | layout, roster navigation, signal-health meter; must carry the full standings, the mat instruction and a large scramble (UI spec §4.6), and the inspection state with `Space`/`Esc` (§5.6); in PENDING, the suggestion, the four keys and the verdict the room is seeing (§7.7) |
 
-The settled values for ATTRACT, STANDBY, ARMED and RUNNING, and the shared tokens (radius, five type sizes,
-palette, wording), are in the UI spec. New screens reuse those tokens before adding any of their own.
+The settled values for ATTRACT, STANDBY, ARMED, RUNNING and PENDING, and the shared tokens (radius, five type sizes,
+palette, motion, wording), are in the UI spec. New screens reuse those tokens before adding any of their own.
 
 ---
 
@@ -86,7 +89,7 @@ independent of UI design and could begin immediately.
 | 4 | **Sync** | `channel.js` + audience window shell | 2 | audience mirrors operator; close and reopen catches up |
 | 5 | **Operator panel** | Roster, keymap, PENDING gate, undo, health meter | 2, 4 | a full 13 × 3 event runs end to end on the mock driver |
 | 6 | **Audience screens** | All ten screens | 4, UI spec | every phase renders correctly at 1080p |
-| 7 | **Maze** | `createMaze({canvas})` refactor; freeze on RUNNING | 6 | runs on idle screens, holds its last frame during a solve |
+| 7 | **Maze** | `createMaze({canvas})` refactor; freeze on RUNNING and PENDING | 6 | runs on idle screens, holds its last frame during a solve |
 | 8 | **Persistence** | Per-result `localStorage`, resume/fresh prompt, JSON + CSV export | 2 | kill the tab mid-event, reload, standings intact |
 | 9 | **Signal check** | Waveform, packets/sec, noise, power, device picker | 1 | screen decodes a live mat |
 | 10 | **Hardware validation** | One session on a machine with a working microphone | 9 | a real StackMat drives a complete attempt |
@@ -103,23 +106,27 @@ independent of UI design and could begin immediately.
 | **Microphone device** | The single most common real failure — the mat is on line-in, the browser defaults to the built-in mic | Device picker on SETUP *and* in the operator panel |
 | **Secure context** | `getUserMedia` fails silently on `file://` | Always serve via `serve.js` |
 | **Extended vs mirrored display** | Two windows want an extended desktop | Degrades gracefully; confirm at the venue |
-| **Mockup HTML unversioned** | The decided mockups are gitignored. Their **assets are in `assets/`** | ATTRACT, STANDBY, ARMED and RUNNING values are transcribed into the UI spec; do the same for every new screen |
+| **Mockup HTML unversioned** | The decided mockups are gitignored. Their **assets are in `assets/`** | ATTRACT, STANDBY, ARMED, RUNNING and PENDING values are transcribed into the UI spec; do the same for every new screen |
 | **No mic on this dev machine** | WSLg's `RDPSource` delivers zero samples | Mock driver covers all logic; one real session covers the rest |
+| **View Transitions API** | Screen changes and standings updates use `document.startViewTransition` (UI spec §2.7), Chrome and Edge 111+ | Run the audience window in Chrome. Without the API every change is a cut, so nothing breaks |
 
 ---
 
 ## Immediate next step
 
-Brainstorm screen 5 (**PENDING**) in the visual companion, then continue down the table. PENDING
-follows RUNNING directly, so `running-06-final.html` is its starting point, and UI spec §5.6 and §6.6
-list what it inherits. The engine plan touches no screen design, so it can be executed alongside
-these brainstorms; the first screens plan runs after it. Start the companion with:
+**Amend both implementation plans** as UI spec §9 lists, before either is executed. PENDING added a
+`lastDecision` to the run state and `verdict` and `standingsBefore` to the snapshot. So the engine
+plan now depends on the screen design, and can no longer run alongside the brainstorms untouched.
+The screens plan builds STANDBY's standings and the screen changes differently now. Then brainstorm
+screen 6 (**RESULTS**) in the visual companion. It follows the motion signature and the
+screen-change rule (UI spec §2.2, §2.7). Start the companion with:
 
 ```sh
 ~/.claude/skills/visual-companion/scripts/start-server.sh \
   --project-dir /home/noob_master/cube-tournament-display --session tournament-display
 ```
 
-Existing screens are preserved. `running-06-final.html` and `standby-09-final.html` are the closest
-references for house style, and the UI spec's §2 holds the shared tokens. `armed-04-final.html`
-still shows the old 17.6cqw clock (UI spec §5.9).
+Existing screens are preserved. `pending-16-final.html`, `running-06-final.html` and
+`standby-09-final.html` are the closest references for house style, and the UI spec's §2 holds the
+shared tokens. `armed-04-final.html` still shows the old 17.6cqw clock (UI spec §5.9), and
+`standby-09-final.html` the old standings (§4.9).
