@@ -23,20 +23,27 @@ browser smoke test.
 **Specs:**
 - `docs/superpowers/specs/2026-09-15-tournament-display-system-design.md` (approved).
 - `docs/superpowers/specs/2026-09-16-tournament-display-ui-design.md`. This plan implements
-  §4.3–§4.4 and §5.1–§5.8, which are the parts that belong to the core.
+  §4.3–§4.4, §5.1–§5.8, §6.4 and §7.5–§7.6, which are the parts that belong to the core.
+
+**Amended on 2026-09-19** after PENDING was designed (UI spec §9): the operator's last decision and
+its reason (Task 9), the verdict and the standings before it in the snapshot (Task 11), their
+scenarios (Task 12), and the operator window publishing again when the verdict ends and when the
+standings update (Task 17). `formatCutoff` (UI spec §6.4, RUNNING) joins Task 3. Task 2's generator
+now creates `config/`, which a fresh checkout does not have.
 
 ---
 
 ## Scope
 
-This is the first of two plans. It covers roadmap Phase 2 rows **0 Scaffold**, **1 Driver seam**,
+This is the first plan. It covers roadmap Phase 2 rows **0 Scaffold**, **1 Driver seam**,
 **2 Pure core**, **3 Scrambler**, **4 Sync** and **8 Persistence**, plus the operator's key loop
 from row 5. The roadmap marks these rows as independent of the UI design, and every value they need
 is already fixed in the two specs.
 
-**Not in this plan.** These belong to the second plan, which is written once all ten screens are
-designed:
-- the designed audience screens: tokens, ATTRACT, STANDBY, ARMED, and screens 4–9;
+**Not in this plan.** These belong to the screens plans: the first,
+`docs/superpowers/plans/2026-09-18-audience-screens.md`, for screens 1–5 and the maze, and later
+ones for the rest as they are designed:
+- the designed audience screens: tokens, ATTRACT, STANDBY, ARMED, RUNNING, PENDING, and screens 6–9;
 - the operator panel's layout (screen 10);
 - SETUP's first-run flow (screen 9), beyond a "Connect mat" button;
 - NO SIGNAL's rendering (screen 7);
@@ -69,6 +76,7 @@ disagree with before execution starts.
 | 10 | Each attempt record carries `teamId`, and all attempts form one flat log | Undo becomes "remove the last entry", and UI spec §4.4's `result` becomes "the last entry that completed a university" |
 | 11 | The mock mode (`?driver=mock`) saves under its own storage key and never asks before closing | A rehearsal can never touch a real event's results |
 | 12 | The real driver checks `navigator.permissions` after it starts | The vendored decoder logs and swallows a `getUserMedia` failure. Without this check, a denied microphone would fail silently |
+| 13 | The verdict (UI spec §7.5) ends on the commands that act: N, ←/→ and U, and on the mat's reset into ARMED. A command that changes nothing leaves it alone | `Space` and `Esc` act only in ARMED, where there is no verdict, and a second `Space` pressed by accident after accepting must not cut the room's verdict short. UI spec §7.5 was first written with `Space` and `Esc` on the list, and was corrected to match |
 
 ## Files
 
@@ -380,7 +388,7 @@ Expected: FAIL with `Cannot find module` for `tools/gen-event.js`.
 // in ctf-interuniversitario/init.sql is the source of truth (system design §1), so a university's
 // spelling can never drift from the CTF's. Participant names are not in the database: see
 // js/config.js.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 export function parseUniversities(sql) {
   const match = sql.match(/CONSTRAINT\s+valid_university\s+CHECK\s*\(\s*university\s+IN\s*\(([^)]*)\)/i);
@@ -400,6 +408,7 @@ export function buildEvent(universities) {
 if (import.meta.main) {
   const source = process.argv[2] ?? new URL('../../ctf-interuniversitario/init.sql', import.meta.url);
   const event = buildEvent(parseUniversities(readFileSync(source, 'utf8')));
+  mkdirSync(new URL('../config/', import.meta.url), { recursive: true }); // a fresh checkout has none
   writeFileSync(new URL('../config/event.json', import.meta.url), `${JSON.stringify(event, null, 2)}\n`);
   console.log(`Wrote ${event.teams.length} teams to config/event.json`);
 }
@@ -564,6 +573,8 @@ git commit -m "Generate the roster from the CTF database and load participant na
 
 ### Task 3: Time format
 
+The clock's format (system design §6), and the cutoff's for RUNNING's status line (UI spec §6.4).
+
 **Files:**
 - Create: `js/core/format.js`
 - Test: `test/core/format.test.js`
@@ -573,7 +584,7 @@ git commit -m "Generate the roster from the CTF database and load participant na
 ```js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatMs } from '../../js/core/format.js';
+import { formatCutoff, formatMs } from '../../js/core/format.js';
 
 test('under a minute: seconds and hundredths', () => {
   assert.equal(formatMs(0), '0.00');
@@ -591,6 +602,14 @@ test('a minute or more: minutes, padded seconds, hundredths', () => {
 test('millisecond precision is truncated, never rounded up', () => {
   assert.equal(formatMs(154329), '2:34.32');
   assert.equal(formatMs(59999), '59.99');
+});
+
+test('the cutoff reads M:SS, with any remainder truncated', () => {
+  assert.equal(formatCutoff(300000), '5:00');
+  assert.equal(formatCutoff(240000), '4:00');
+  assert.equal(formatCutoff(90000), '1:30');
+  assert.equal(formatCutoff(45000), '0:45');
+  assert.equal(formatCutoff(300999), '5:00');
 });
 ```
 
@@ -611,18 +630,25 @@ export function formatMs(ms) {
   const fraction = String(hundredths % 100).padStart(2, '0');
   return minutes > 0 ? `${minutes}:${String(seconds).padStart(2, '0')}.${fraction}` : `${seconds}.${fraction}`;
 }
+
+// RUNNING's status line, LÍMITE 5:00 (UI spec §6.4): M:SS. The cutoff is set in whole seconds, so
+// there are no hundredths; a remainder is truncated, as formatMs does.
+export function formatCutoff(ms) {
+  const seconds = Math.floor(ms / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
 ```
 
 - [ ] **Step 4: Run the test**
 
 Run: `node --test test/core/format.test.js`
-Expected: `ℹ pass 3`, `ℹ fail 0`.
+Expected: `ℹ pass 4`, `ℹ fail 0`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add js/core/format.js test/core/format.test.js
-git commit -m "Add the time format"
+git commit -m "Add the time and cutoff formats"
 ```
 
 ---
@@ -1502,10 +1528,12 @@ git commit -m "Add the run-state reducer: mat transitions, N and inspection"
 ### Task 9: The run state, part 2: decisions, roster, undo
 
 This task adds the PENDING gate and auto-arming (system design §5), roster navigation (decision 5),
-redo (decision 6) and undo (decision 3).
+redo (decision 6) and undo (decision 3). Each decision also leaves `lastDecision`, the verdict the
+room is shown, with the reason for a DNF (UI spec §7.5). The commands that act end it (decision 13).
 
 **Files:**
-- Modify: `js/core/run-state.js` (the import line, `onCommand`, and two new functions at the end)
+- Modify: `js/core/run-state.js` (the imports, `createState`, `onMat`'s SCRAMBLE case, `cleared`,
+  `onCommand`, and three new functions at the end)
 - Test: `test/core/run-state-decisions.test.js`
 
 - [ ] **Step 1: Write the failing test**, `test/core/run-state-decisions.test.js`
@@ -1530,6 +1558,17 @@ const solveTo = (state, ms, at = 0) => apply(
 );
 
 const pending = (ms = 12470) => solveTo(reduce(createState(config), cmd('next')), ms);
+
+// PENDING on `ms`, after `inspectionMs` of inspection.
+const inspected = (ms, inspectionMs) => apply(
+  createState(config),
+  cmd('next'),
+  { type: 'scramble', seq: 1, scramble: "R U R'", svg: '<svg/>' },
+  mat(packet('I', 0)),
+  cmd('startInspection', 0),
+  mat(packet(' ', 100, true), inspectionMs),
+  mat(packet('S', ms)),
+);
 
 test('Space in PENDING records the attempt as OK and calls the next one', () => {
   const state = reduce(pending(12470), cmd('accept', 99));
@@ -1654,6 +1693,46 @@ test('U with nothing recorded does nothing', () => {
   const state = reduce(createState(config), cmd('next'));
   assert.equal(reduce(state, cmd('undo')), state);
 });
+
+test('each decision leaves a verdict: its kind, the attempt, the stopped time and the key time', () => {
+  assert.equal(createState(config).lastDecision, null);
+  for (const [command, kind] of [['accept', 'OK'], ['plus2', '+2'], ['dnf', 'DNF'], ['redo', 'REDO']]) {
+    assert.deepEqual(reduce(pending(12470), cmd(command, 99)).lastDecision,
+      { kind, teamId: 'alfa', attempt: 1, ms: 12470, reason: null, at: 99 }, command);
+  }
+});
+
+test('a DNF past the cutoff names the cutoff; one exactly on it names nothing', () => {
+  assert.equal(reduce(pending(300010), cmd('dnf')).lastDecision.reason, 'CUTOFF');
+  assert.equal(reduce(pending(300000), cmd('dnf')).lastDecision.reason, null);
+});
+
+test('a DNF after more than 17 s of inspection names inspection; when both apply, the cutoff', () => {
+  assert.equal(reduce(inspected(9000, 17001), cmd('dnf')).lastDecision.reason, 'INSPECTION');
+  assert.equal(reduce(inspected(9000, 17000), cmd('dnf')).lastDecision.reason, null);
+  assert.equal(reduce(inspected(300010, 17001), cmd('dnf')).lastDecision.reason, 'CUTOFF');
+});
+
+test('only a DNF has a reason', () => {
+  for (const command of ['accept', 'plus2', 'redo']) {
+    assert.equal(reduce(inspected(300010, 17001), cmd(command)).lastDecision.reason, null, command);
+  }
+});
+
+test('N, ←, →, U and the mat reset into ARMED end the verdict; the mat still showing the time does not', () => {
+  const decided = reduce(pending(), cmd('accept'));
+  for (const command of ['next', 'nextTeam', 'prevTeam', 'undo']) {
+    assert.equal(reduce(decided, cmd(command)).lastDecision, null, command);
+  }
+  assert.equal(reduce(decided, mat(packet('I', 0))).lastDecision, null);
+  assert.notEqual(reduce(decided, mat(packet('S', 12470))).lastDecision, null);
+});
+
+test('a second Space or an Esc during the verdict changes nothing', () => {
+  const decided = reduce(pending(), cmd('accept'));
+  assert.equal(reduce(decided, cmd('startInspection')), decided);
+  assert.equal(reduce(decided, cmd('cancelInspection')), decided);
+});
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -1662,7 +1741,7 @@ Run: `node --test test/core/run-state-decisions.test.js`
 Expected: FAIL. Among the failures is `Space in PENDING records the attempt as OK…`, because
 `accept` is still ignored.
 
-- [ ] **Step 3: Widen the import** in `js/core/run-state.js`. Replace
+- [ ] **Step 3: Widen the imports** in `js/core/run-state.js`. Replace
 
 ```js
 import { createEvent, findTeam, nextAttemptNo } from './event-model.js';
@@ -1672,9 +1751,54 @@ with
 
 ```js
 import { createEvent, findTeam, isComplete, nextAttemptNo, recordAttempt, undoLast } from './event-model.js';
+import { suggestedPenalty } from './inspection.js';
 ```
 
-- [ ] **Step 4: Replace the whole `onCommand` function** with
+- [ ] **Step 4: Give the state its last decision.** In `createState`, replace
+
+```js
+    mat: null, // the last StackmatState heard with on === true
+    signalOn: false,
+  };
+```
+
+with
+
+```js
+    mat: null, // the last StackmatState heard with on === true
+    signalOn: false,
+    // The operator's last decision, shown to the room as a verdict (UI spec §7.5). Only the attempt
+    // log is persisted, so a reload drops it.
+    lastDecision: null,
+  };
+```
+
+- [ ] **Step 5: End the verdict when the mat is reset for the next attempt.** In `onMat`, replace
+
+```js
+        ? { ...next, phase: 'ARMED' }
+```
+
+with
+
+```js
+        ? { ...next, phase: 'ARMED', lastDecision: null }
+```
+
+- [ ] **Step 6: End it too when N or ←/→ set up another attempt.** Replace
+
+```js
+const cleared = () => ({ inspectionStartedAt: null, inspectionMs: null, pendingMs: null });
+```
+
+with
+
+```js
+// Nothing carries over from one attempt to the next, not even the verdict on screen.
+const cleared = () => ({ inspectionStartedAt: null, inspectionMs: null, pendingMs: null, lastDecision: null });
+```
+
+- [ ] **Step 7: Replace the whole `onCommand` function** with
 
 ```js
 function onCommand(state, command, at) {
@@ -1695,14 +1819,16 @@ function onCommand(state, command, at) {
     case 'cancelInspection':
       return phase === 'ARMED' ? { ...state, inspectionStartedAt: null } : state;
     case 'accept':
-      return phase === 'PENDING' ? decide(state, 'OK', null, at) : state;
+      return phase === 'PENDING' ? decide(state, 'OK', at) : state;
     case 'plus2':
-      return phase === 'PENDING' ? decide(state, 'OK', '+2', at) : state;
+      return phase === 'PENDING' ? decide(state, '+2', at) : state;
     case 'dnf':
-      return phase === 'PENDING' ? decide(state, 'DNF', null, at) : state;
+      return phase === 'PENDING' ? decide(state, 'DNF', at) : state;
     case 'redo':
       // The time is voided and the same attempt is solved again, on a new scramble.
-      return phase === 'PENDING' ? { ...state, ...cleared(), ...freshScramble(state), phase: 'SCRAMBLE' } : state;
+      return phase === 'PENDING'
+        ? { ...state, ...cleared(), ...freshScramble(state), phase: 'SCRAMBLE', lastDecision: decision(state, 'REDO', at) }
+        : state;
     case 'undo':
       return IDLE_PHASES.includes(phase) ? undo(state) : state;
     default:
@@ -1711,26 +1837,37 @@ function onCommand(state, command, at) {
 }
 ```
 
-- [ ] **Step 5: Append `decide` and `undo`** at the end of `js/core/run-state.js`, after
-`selectTeam`:
+- [ ] **Step 8: Append `decision`, `decide` and `undo`** at the end of `js/core/run-state.js`,
+after `selectTeam`:
 
 ```js
+// The verdict the room is shown after a decision (UI spec §7.5): `kind` is 'OK', '+2', 'DNF' or
+// 'REDO', and `ms` the stopped time without the penalty. A DNF names its reason when the room saw it
+// coming: the time past the cutoff, which wins, or more than 17 s of inspection.
+function decision(state, kind, at) {
+  const { teams, cutoffMs } = state.event.config;
+  let reason = null;
+  if (kind === 'DNF' && state.pendingMs > cutoffMs) reason = 'CUTOFF';
+  else if (kind === 'DNF' && suggestedPenalty(state.inspectionMs) === 'DNF') reason = 'INSPECTION';
+  return { kind, teamId: teams[state.teamIndex].id, attempt: state.attemptNo, ms: state.pendingMs, reason, at };
+}
+
 // The PENDING gate's decision. With attempts left, the next scramble appears at once and the system
 // waits for the mat to be reset (auto-arming, system design §5). With none left, STANDBY shows this
 // university's Resultado until N.
-function decide(state, status, penalty, at) {
+function decide(state, kind, at) {
   const team = state.event.config.teams[state.teamIndex];
   const event = recordAttempt(state.event, {
     teamId: team.id,
     attempt: state.attemptNo,
     ms: state.pendingMs,
-    penalty,
-    status,
+    penalty: kind === '+2' ? '+2' : null,
+    status: kind === 'DNF' ? 'DNF' : 'OK',
     scramble: state.scramble,
     inspectionMs: state.inspectionMs,
     at,
   });
-  const next = { ...state, ...cleared(), event };
+  const next = { ...state, ...cleared(), event, lastDecision: decision(state, kind, at) };
   if (isComplete(event, team.id)) return { ...next, phase: 'STANDBY', attemptNo: null, scramble: null, scrambleSvg: null };
   return { ...next, ...freshScramble(state), phase: 'SCRAMBLE', attemptNo: nextAttemptNo(event, team.id) };
 }
@@ -1750,6 +1887,7 @@ function undo(state) {
     pendingMs: attempt.ms,
     inspectionMs: attempt.inspectionMs,
     inspectionStartedAt: null,
+    lastDecision: null,
     // The same scramble, under a new seq so the operator window redraws its preview.
     scramble: attempt.scramble,
     scrambleSvg: null,
@@ -1758,16 +1896,16 @@ function undo(state) {
 }
 ```
 
-- [ ] **Step 6: Run both run-state tests**
+- [ ] **Step 9: Run both run-state tests**
 
 Run: `node --test test/core/run-state.test.js test/core/run-state-decisions.test.js`
-Expected: `ℹ pass 33`, `ℹ fail 0`.
+Expected: `ℹ pass 39`, `ℹ fail 0`.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add js/core/run-state.js test/core/run-state-decisions.test.js
-git commit -m "Add decisions, roster navigation, redo and undo to the run state"
+git commit -m "Add decisions and their verdicts, roster navigation, redo and undo to the run state"
 ```
 
 ---
@@ -1845,9 +1983,11 @@ git commit -m "Add the default operator keymap"
 
 ### Task 11: The snapshot
 
-This is system design §4, extended by UI spec §4.4 and §5.5. It adds `teams` (ATTRACT's plates, and
-the names in the standings) and `startedCount` (the header's `{n}`). The audience window can then
-render every designed screen without holding any state of its own.
+This is system design §4, extended by UI spec §4.4, §5.5 and §7.6. It adds `teams` (ATTRACT's
+plates, and the names in the standings) and `startedCount` (the header's `{n}`). It also adds
+`verdict`, the last decision for 3 s after the key, and `standingsBefore`, the standings as they were
+before that decision until they update 1.2 s after the verdict ends (UI spec §7.5). The audience
+window can then render every designed screen without holding any state of its own.
 
 **Files:**
 - Create: `js/core/snapshot.js`
@@ -1858,14 +1998,16 @@ render every designed screen without holding any state of its own.
 ```js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createState } from '../../js/core/run-state.js';
-import { buildSnapshot } from '../../js/core/snapshot.js';
+import { createState, reduce } from '../../js/core/run-state.js';
+import { STANDINGS_UPDATE_MS, VERDICT_MS, buildSnapshot } from '../../js/core/snapshot.js';
 import { packet } from '../../js/drivers/scenarios.js';
 import { attempt, dnf, makeConfig } from '../helpers/fixtures.js';
 import { apply, cmd, mat } from '../helpers/actions.js';
 
 const config = makeConfig();
 const armed = () => apply(createState(config), cmd('next'), mat(packet('I', 0)));
+// PENDING on `ms` for the university N calls next.
+const pending = (state, ms) => apply(reduce(state, cmd('next')), mat(packet('I', 0)), mat(packet(' ', 100, true)), mat(packet('S', ms)));
 
 test('STANDBY at the start: no competitor, no result, nothing started', () => {
   const snapshot = buildSnapshot(createState(config), 0);
@@ -1876,6 +2018,8 @@ test('STANDBY at the start: no competitor, no result, nothing started', () => {
   assert.deepEqual(snapshot.standings, []);
   assert.equal(snapshot.teams.length, 4);
   assert.deepEqual(snapshot.signal, { on: false });
+  assert.equal(snapshot.verdict, null);
+  assert.equal(snapshot.standingsBefore, null);
 });
 
 test('SCRAMBLE carries the competitor, the attempt and the scramble', () => {
@@ -1926,6 +2070,29 @@ test('a snapshot survives structured cloning, as BroadcastChannel requires', () 
   const snapshot = buildSnapshot(apply(armed(), cmd('startInspection', 0)), 3000);
   assert.deepEqual(structuredClone(snapshot), snapshot);
 });
+
+test('the verdict shows from the key until VERDICT_MS later', () => {
+  const decided = reduce(pending(createState(config), 12470), cmd('plus2', 1000));
+  assert.deepEqual(buildSnapshot(decided, 1000 + 2999).verdict, { kind: '+2', teamId: 'alfa', attempt: 1, ms: 12470, reason: null });
+  assert.equal(buildSnapshot(decided, 1000 + 3000).verdict, null);
+  assert.equal(VERDICT_MS, 3000);
+});
+
+test('until STANDINGS_UPDATE_MS, standingsBefore is the board without the decided attempt', () => {
+  const before = createState(config, [attempt('alfa', 1, 20000), attempt('alfa', 2, 21000), attempt('alfa', 3, 22000)]);
+  const decided = reduce(pending(before, 10000), cmd('accept', 1000));
+  const waiting = buildSnapshot(decided, 1000 + 4199);
+  assert.deepEqual(waiting.standingsBefore, buildSnapshot(before, 0).standings);
+  assert.deepEqual(waiting.standings.map((row) => row.teamId), ['beta', 'alfa']);
+  assert.equal(buildSnapshot(decided, 1000 + 4200).standingsBefore, null);
+  assert.equal(STANDINGS_UPDATE_MS, 4200);
+});
+
+test('a redo shows a verdict but has no standings to update', () => {
+  const redone = reduce(pending(createState(config), 12470), cmd('redo', 1000));
+  assert.equal(buildSnapshot(redone, 1000).verdict.kind, 'REDO');
+  assert.equal(buildSnapshot(redone, 1000).standingsBefore, null);
+});
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -1936,11 +2103,17 @@ Expected: FAIL with `Cannot find module` for `js/core/snapshot.js`.
 - [ ] **Step 3: Write `js/core/snapshot.js`**
 
 ```js
-// The snapshot the operator window broadcasts to the audience (system design §4, UI spec §4.4 and
-// §5.5). The audience renders it and holds nothing else. Pure: `now` is passed in.
-import { startedCount } from './event-model.js';
+// The snapshot the operator window broadcasts to the audience (system design §4, UI spec §4.4, §5.5
+// and §7.6). The audience renders it and holds nothing else. Pure: `now` is passed in.
+import { startedCount, undoLast } from './event-model.js';
 import { handsFromHeader } from './inspection.js';
 import { audienceStandings, latestResult, standings } from './scoring.js';
+
+// How long the room sees a verdict, from the operator's key to the screen change (UI spec §7.2).
+export const VERDICT_MS = 3000;
+// When the standings update after a verdict: once the screen change (--t-long, 800 ms) and a pause
+// (--t-step, 400 ms) have run. The two numbers are the motion tokens of UI spec §2.2.
+export const STANDINGS_UPDATE_MS = VERDICT_MS + 800 + 400;
 
 export function buildSnapshot(state, now) {
   const { event, phase } = state;
@@ -1964,14 +2137,30 @@ export function buildSnapshot(state, now) {
     // Counted from the latest packet, so the countdown moves at the mat's ~10 Hz.
     inspectionMs: phase === 'ARMED' && state.inspectionStartedAt !== null ? now - state.inspectionStartedAt : null,
     hands: state.signalOn ? handsFromHeader(state.mat?.signalHeader) : 'up',
+    verdict: verdictAt(state.lastDecision, now),
+    standingsBefore: standingsBefore(state, now),
   };
+}
+
+// The last decision, while the room is shown it (UI spec §7.5).
+function verdictAt(decision, now) {
+  if (decision === null || now - decision.at >= VERDICT_MS) return null;
+  const { kind, teamId, attempt, ms, reason } = decision;
+  return { kind, teamId, attempt, ms, reason };
+}
+
+// The audience standings as they were before the decision, until they update (UI spec §2.7). A redo
+// records nothing, so there is nothing to update.
+function standingsBefore({ lastDecision, event }, now) {
+  if (lastDecision === null || lastDecision.kind === 'REDO' || now - lastDecision.at >= STANDINGS_UPDATE_MS) return null;
+  return audienceStandings(standings(undoLast(event).event), 8);
 }
 ```
 
 - [ ] **Step 4: Run the test**
 
 Run: `node --test test/core/snapshot.test.js`
-Expected: `ℹ pass 7`, `ℹ fail 0`.
+Expected: `ℹ pass 10`, `ℹ fail 0`.
 
 - [ ] **Step 5: Commit**
 
@@ -1985,7 +2174,7 @@ git commit -m "Add the operator-to-audience snapshot"
 ### Task 12: The mock driver, the scenario replays, and a full event
 
 This covers roadmap row 1's "mock replays a full solve", every scenario in system design §9 and UI
-spec §5.8, and a 13 × 3 event on the real roster.
+spec §5.8 and §7.9, and a 13 × 3 event on the real roster.
 
 **Files:**
 - Create: `js/drivers/mock.js`
@@ -2109,7 +2298,7 @@ Expected: `ℹ pass 5`, `ℹ fail 0`.
 - [ ] **Step 5: Write the scenario replays**, `test/drivers/replay.test.js`
 
 ```js
-// The scripted scenarios of system design §9 and UI spec §5.8, replayed through the reducer.
+// The scripted scenarios of system design §9 and UI spec §5.8 and §7.9, replayed through the reducer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, reduce } from '../../js/core/run-state.js';
@@ -2219,6 +2408,24 @@ test('hands down, then lifted before green: ARMED throughout, hands back to up',
   assert.equal(state.phase, 'ARMED');
   assert.equal(buildSnapshot(state, 0).hands, 'up');
 });
+
+test('clean solve, then each key: the verdict the room is shown', () => {
+  const state = replay(armed(), { steps: SCENARIOS.cleanSolve() });
+  for (const [command, kind] of [['accept', 'OK'], ['plus2', '+2'], ['dnf', 'DNF'], ['redo', 'REDO']]) {
+    const decided = reduce(state, cmd(command, 60000));
+    assert.deepEqual(buildSnapshot(decided, 60000).verdict, { kind, teamId: 'alfa', attempt: 1, ms: 8000, reason: null }, command);
+  }
+});
+
+test('cutoff overrun, then D: the verdict names the cutoff', () => {
+  const state = reduce(replay(armed(), { steps: SCENARIOS.cutoffOverrun() }), cmd('dnf', 400000));
+  assert.equal(buildSnapshot(state, 400000).verdict.reason, 'CUTOFF');
+});
+
+test('a start past 17 s of inspection, then D: the verdict names the inspection', () => {
+  const state = replay(armed(), { steps: startAfter(18000), commands: [{ t: 0, command: 'startInspection' }] });
+  assert.equal(buildSnapshot(reduce(state, cmd('dnf', 60000)), 60000).verdict.reason, 'INSPECTION');
+});
 ```
 
 - [ ] **Step 6: Write the full event**, `test/core/full-event.test.js`
@@ -2265,7 +2472,7 @@ test('13 × 3 attempts run end to end, in roster order, and land in the standing
 - [ ] **Step 7: Run both**
 
 Run: `node --test test/drivers/replay.test.js test/core/full-event.test.js`
-Expected: `ℹ pass 13`, `ℹ fail 0`. These pass immediately, because they replay behaviour built in
+Expected: `ℹ pass 16`, `ℹ fail 0`. These pass immediately, because they replay behaviour built in
 Tasks 5–11. If one fails, the bug is in those tasks: fix it there, not in the test.
 
 - [ ] **Step 8: Commit**
@@ -2981,7 +3188,7 @@ export function createScrambler(worker) {
 - [ ] **Step 5: Run the whole suite**
 
 Run: `npm test`
-Expected: `ℹ pass 122`, `ℹ fail 0`, `ℹ skipped 0`.
+Expected: `ℹ pass 135`, `ℹ fail 0`, `ℹ skipped 0`.
 
 - [ ] **Step 6: Commit**
 
@@ -2994,8 +3201,10 @@ git commit -m "Add the client for the cstimer_module scramble worker"
 
 ### Task 17: The two windows, and a browser smoke test
 
-The operator window wires the core to the browser. The audience window renders snapshots. Both views
-are debug scaffolding (see Scope). The smoke test drives both windows in headless Chrome over the
+The operator window wires the core to the browser. It publishes a snapshot on every event, and also
+when a verdict ends and when the standings update, which happen on time rather than on a mat packet
+(UI spec §7.5). The audience window renders snapshots. Both views are debug scaffolding (see Scope):
+the audience's shows the verdict only as a field of the snapshot. The smoke test drives both windows in headless Chrome over the
 DevTools protocol, with no dependencies. It needs `google-chrome` on the `PATH`, or `CHROME` set to a
 Chrome binary. If neither exists, stop and ask the user.
 
@@ -3139,6 +3348,11 @@ check('the audience clock shows 8.00', (await text(audience, 'clock')) === '8.00
 await operator.press(' ');
 await sleep(1500);
 check('Space accepts → attempt 2', (await text(operator, 'status')).includes('attempt 2 of 3'));
+check('the audience is shown the verdict', (await snapshot(audience)).verdict?.kind === 'OK');
+await sleep(2000);
+const after = await snapshot(audience);
+check('the verdict ends after 3 s, and the standings wait to update', after.verdict === null
+  && after.standingsBefore?.length === 0 && after.standings.length === 1);
 await operator.press('u');
 await sleep(300);
 check('U reopens PENDING', (await phase(operator)) === 'PENDING');
@@ -3364,7 +3578,7 @@ import { claimOperator, createPublisher } from '../core/channel.js';
 import { toCSV, toJSON } from '../core/export.js';
 import { commandForKey } from '../core/keymap.js';
 import { createState, reduce } from '../core/run-state.js';
-import { buildSnapshot } from '../core/snapshot.js';
+import { STANDINGS_UPDATE_MS, VERDICT_MS, buildSnapshot } from '../core/snapshot.js';
 import { STORAGE_KEY, createStore } from '../core/store.js';
 import { createMockDriver } from '../drivers/mock.js';
 import { createRealDriver } from '../drivers/real.js';
@@ -3433,6 +3647,12 @@ function run(config, attempts) {
       view.setExports(toJSON(state.event, now), toCSV(state.event));
     }
     if (state.scrambleSeq !== requestedSeq) requestScramble();
+    // The verdict ends and the standings update on time, not on the mat's next packet (UI spec
+    // §7.5), so the snapshot is sent again at both moments.
+    const decision = state.lastDecision;
+    if (decision !== null && decision !== previous.lastDecision) {
+      for (const delay of [VERDICT_MS, STANDINGS_UPDATE_MS]) setTimeout(() => dispatch({ type: 'render' }), decision.at + delay - now);
+    }
     const snapshot = buildSnapshot(state, now);
     publisher.publish(snapshot);
     view.render(state, snapshot, now);
@@ -3530,6 +3750,8 @@ PASS  the solve starts → RUNNING
 PASS  the timer stops → PENDING at 8.00
 PASS  the audience clock shows 8.00
 PASS  Space accepts → attempt 2
+PASS  the audience is shown the verdict
+PASS  the verdict ends after 3 s, and the standings wait to update
 PASS  U reopens PENDING
 PASS  D records a DNF
 PASS  the attempt is saved under the mock key
@@ -3550,7 +3772,7 @@ real mat's audio callback is not throttled.
 - [ ] **Step 9: Run the unit suite again**
 
 Run: `npm test`
-Expected: `ℹ pass 122`, `ℹ fail 0`. The smoke script is not a `*.test.js` file, so `npm test` does
+Expected: `ℹ pass 135`, `ℹ fail 0`. The smoke script is not a `*.test.js` file, so `npm test` does
 not pick it up.
 
 - [ ] **Step 10: Commit**
@@ -3647,7 +3869,7 @@ git commit -m "Document running the engine and record what it built"
 | `core/` pure, runs under `node --test` (§3 invariant 3) | Tasks 3–11, 14 |
 | Scrambles from `cstimer_module` in a WebWorker (§3) | Task 16 |
 | Driver interface; drivers interchangeable (§4) | Tasks 12, 13 |
-| Snapshot (§4, UI §4.4, UI §5.5) | Task 11 |
+| Snapshot (§4, UI §4.4, UI §5.5, UI §7.6) | Task 11 |
 | Mat-driven transitions, the non-zero guard (§5) | Task 8 |
 | Operator keys, the PENDING gate, auto-arming (§5) | Tasks 9, 10 |
 | Data model, best of 3, `+2`, DNF, unranked, tie-breaks, time format (§6) | Tasks 3, 5, 6 |
@@ -3659,6 +3881,11 @@ git commit -m "Document running the engine and record what it built"
 | Inspection: rule, core functions, run state, attempt record (UI §5.1, §5.4) | Tasks 4, 8, 9 |
 | Inspection tests and scenarios (UI §5.8) | Tasks 4, 8, 12 |
 | Operator sees the suggested penalty with `inspectionMs` (UI §5.6) | Task 17 (debug view) |
+| RUNNING's cutoff, `formatCutoff` (UI §6.4) | Task 3 |
+| The last decision, its DNF reason, and what ends it (UI §7.5) | Task 9; decision 13 |
+| `verdict` and `standingsBefore` in the snapshot, `VERDICT_MS` and `STANDINGS_UPDATE_MS` (UI §7.5–§7.6) | Task 11 |
+| Verdict scenarios: a clean solve then each key, a cutoff overrun then D, a late start then D (UI §7.9) | Task 12 |
+| The verdict ends and the standings update on time, not on the next packet (UI §7.5) | Task 17; `npm run smoke` |
 
 **Deferred with reasons** (see Scope): the device picker's final form and the signal-health meter
 (screens 9 and 10; the debug view has a plain device list and shows `noise`), packets per second and
