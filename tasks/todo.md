@@ -27,8 +27,8 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 | Worktree | `/home/noob_master/cube-tournament-display/.worktrees/engine` |
 | Branch | `engine` — **carries all five plans**, merged back to `main` only at the very end |
 | Node | v24.11.1 (plans need ≥ 24.2) |
-| Suite | `npm test` → **pass 173, fail 0, skipped 0**; `npm run smoke` → **34/34 when it passes, but see Blocker** |
-| Last commit | `4ac4795` Note the signal check in the README |
+| Suite | `npm test` → **pass 173, fail 0, skipped 0**; `npm run smoke` → **34/34, six runs out of six** |
+| Last commit | `905a38a` Let the operator window open before the font arrives |
 | Required symlink | `.worktrees/ctf-interuniversitario` → `/home/noob_master/ctf-interuniversitario` — **present**; without it the engine's `config/event.json` test silently *skips* instead of failing |
 | `main` merged in | yes, 2026-09-19 — the branch now has the SETUP, NO SIGNAL and RESULTS specs and plans |
 
@@ -124,10 +124,11 @@ Chrome throttles hidden tabs and the mock mat stops ticking without them.
 
 ---
 
-## ⚠ Blocker — `npm run smoke` is flaky since plan 2, and plan 3 inherits it
+## ✅ Resolved — the smoke gate was flaky since plan 2; fixed in `905a38a`
 
-**Found by the orchestrator on 2026-09-19, after plan 2.** Not a defect in plan 2's logic; its tests
-and its screen are sound. This is about the gate the whole chain is verified with.
+**Found and fixed by the orchestrator on 2026-09-19, between plans 2 and 3.** Not a defect in plan
+2's logic; its tests and its screen are sound. This was about the gate the whole chain is verified
+with. Kept here because the two hazards it exposed are permanent, and the second one is unfixed.
 
 **Symptom.** `npm run smoke` fails intermittently, most often on its *first* check,
 `real mode loads and offers "Connect mat"`. Measured on this machine: **1 clean run in 6**, with the
@@ -150,15 +151,33 @@ Two consequences, one of which is not about tests:
    bad venue connection or none, that is a product question, not a test question. The font itself is
    deliberate (plan 3 asserts roc-grotesk loads, and adds the same link to `audience.html`).
 
-**Why it was not simply fixed here.** Plan 3 **replaces `test/browser/smoke.js` whole** (its Task at
-line 1281) and its replacement keeps the same `await sleep(1500)` pattern, so a fix made now to that
-file is overwritten by the next plan in the chain. Plan 3 also creates `test/browser/harness.js` —
-the natural home for a `waitFor(predicate)` helper, if that is the route chosen.
+**The fix, owner's call on 2026-09-19: unblock the boot *and* poll.** Both halves:
 
-**A second, unrelated hazard the same investigation turned up:** `smoke.js` hardcodes
-`DEBUG_PORT = 9333` and its readiness loop breaks as soon as *anything* answers
-`/json/version`. Two runs started back to back make the second drive the first's dying Chrome while
-its profile is being deleted. Never run two smoke runs concurrently; wait for the port to close.
+1. **Done, `905a38a`.** `index.html` now uses `<link rel="preload" as="style" … onload>` with a
+   `<noscript>` fallback, so the font is fetched without gating the scripts. The button appears at
+   **761–764 ms across four probes** (was 1284 / 4394 / 2028), and `npm run smoke` went from **1
+   clean run in 6 to 6 in 6**, with `npm test` still 173 / 0 / 0. The typeface is unaffected: the
+   link swaps to `rel="stylesheet"`, the sheet lands in `document.styleSheets`, and
+   `document.fonts.check('800 20px roc-grotesk-variable')` is still true — so plan 3's
+   `roc-grotesk loads from Adobe Fonts` check still holds.
+2. **Carried into plan 3's dispatch as an authorized deviation**, because plan 3 **replaces
+   `test/browser/smoke.js` whole** (its Task at line 1281) with the same `await sleep(1500)` pattern,
+   so a patch to that file now would simply be overwritten. Plan 3's agent was told to write
+   `audience.html`'s font link in the non-blocking form, and to add `waitFor(predicate)` to the
+   `test/browser/harness.js` it creates, replacing the **five readiness sleeps** (plan lines ~1299,
+   ~1308, ~1340, ~1365, ~2025) — while **leaving the `VERDICT_MS` / `STANDINGS_UPDATE_MS` waits
+   alone, because those sleeps are the assertion.** Plans 4 and 5 should use `waitFor` too.
+
+**⚠ A second hazard the same investigation turned up, still unfixed.** `smoke.js` hardcodes
+`DEBUG_PORT = 9333` and its readiness loop breaks as soon as *anything* answers `/json/version`. Two
+runs started back to back make the second drive the first's **dying** Chrome while its profile is
+being deleted, producing bizarre failures in unrelated checks. **Never run two smoke runs
+concurrently; wait for port 9333 to close between them.** This cost an hour of false leads before it
+was spotted. No plan fixes it — it is a candidate for the parked list.
+
+**The standard of proof this chain now uses for the browser gate: three serial runs, identical.**
+One green run proved nothing here — the very first investigation had a run pass 34/34 between two
+that failed.
 
 ---
 
