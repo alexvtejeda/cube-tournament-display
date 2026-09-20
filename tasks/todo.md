@@ -11,8 +11,9 @@ branch itself, then dispatches the next. It does not execute plan tasks itself.
 
 ## ⚠ READ THIS FIRST — is a dispatch already in flight?
 
-**Plan 4 is finished and verified (2026-09-19 23:25). Nothing is in flight as of that time.**
-Plans 1–4 are all verified and committed.
+**⚠ TASK 4.5 (MAZE FULL-BLEED) WAS DISPATCHED 2026-09-19 23:30 AND IS RUNNING NOW.** Do not
+dispatch anything onto `.worktrees/engine` until you have proven it is finished — use the check
+below. Plans 1–4 are verified and committed; anything after `615cf21` is task 4.5's and unchecked.
 
 **Next, in order:** task **4.5 (maze full-bleed)** → **plan 5** → `finishing-a-development-branch`.
 
