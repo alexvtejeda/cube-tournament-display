@@ -7,8 +7,9 @@ separate operator console on the laptop.
 Built because a commercial tournament display costs around $100 and does rather more than a small
 event needs.
 
-> **Status:** the engine runs: run loop, scoring, both StackMat drivers, persistence and window
-> sync, with plain-text debug views. The designed screens come next.
+> **Status:** the engine runs, and the audience window shows the designed ATTRACT, STANDBY, ARMED,
+> RUNNING and PENDING screens over the live maze, moving what they share from one screen to the
+> next. The operator window still uses a plain-text debug view until its screen is designed.
 > See [`docs/superpowers/specs/`](docs/superpowers/specs/) for the designs.
 
 ---
@@ -47,8 +48,12 @@ You need Node 24.2 or newer, and Chrome.
 npm install          # cstimer_module, the scramble generator
 npm test             # the core, the drivers and the server; no browser needed
 npm run smoke        # both windows in headless Chrome, on the mock mat
+npm run screens      # the designed screens at 1080p, checked and saved to test/browser/out/
 npm start            # serves http://localhost:8080
 ```
+
+`npm run screens` also needs internet access, for the Adobe Fonts kit. The audience window's screen
+changes need Chrome or Edge 111 or newer; other browsers cut between screens.
 
 Open the operator window at `http://localhost:8080/` and the audience window at
 `http://localhost:8080/audience.html`, then drag the audience window to the projector. To rehearse

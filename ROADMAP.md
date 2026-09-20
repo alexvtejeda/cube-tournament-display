@@ -107,6 +107,11 @@ independent of UI design and could begin immediately.
 8, and row 5's key loop without its panel layout. Plain-text debug views stand in for screens 1–10.
 `npm test` covers the core and the drivers; `npm run smoke` covers both windows on the mock mat.
 
+**Built by the first screens plan** (`docs/superpowers/plans/2026-09-18-audience-screens.md`): row 6
+for screens 1–5 (ATTRACT, STANDBY, ARMED, RUNNING and PENDING), with the screen changes of UI spec
+§2.7, and row 7. `npm run screens` renders every designed state at 1080p, checks the UI spec's
+invariants and what each screen change moves, and saves a PNG of each state.
+
 ---
 
 ## Risks to clear before October
