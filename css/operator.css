@@ -1,0 +1,259 @@
+/* The operator window (operator spec §2). Sizes are fixed px, never cqw: this is a laptop window
+   read at arm's length, and a reading that shrinks with the window is the opposite of what this
+   window is for. The palette is the audience's (audience spec §2.1) with no new value; what is new
+   is that --o-red means "a problem" here. */
+
+:root {
+  --o-bg: #02010c;
+  --o-divider: #231f66;
+  --o-violet: #aba6f7;
+  --o-unknown: rgba(171, 166, 247, 0.45);
+  --o-red: #ee2737;
+  --o-go: #2ee6a0;
+
+  --o-fs-label: 13px;
+  --o-fs-body: 16px;
+  --o-fs-lead: 20px;
+  --o-fs-num: 26px;
+  --o-fs-verdict: 40px;
+  --o-fs-clock: 88px;
+
+  --o-radius: 16px;
+  --o-gutter: 32px;
+}
+
+/* ── the screen ─────────────────────────────────────────────────────────── */
+
+.sc {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow: auto;
+  background: var(--o-bg);
+  color: #fff;
+  font: 500 var(--o-fs-body) / 1.35 "roc-grotesk-variable", "roc-grotesk", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.sc[hidden] { display: none; }
+.sc * { box-sizing: border-box; }
+.sc p, .sc ul, .sc ol { margin: 0; padding: 0; list-style: none; }
+
+/* Below 1280 × 800 the page scrolls; nothing shrinks (spec §2.2). */
+.sc-page {
+  display: flex;
+  flex-direction: column;
+  min-width: 1240px;
+  min-height: 780px;
+  height: 100%;
+}
+
+.sc-label {
+  font-size: var(--o-fs-label);
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--o-violet);
+}
+
+/* ── header ─────────────────────────────────────────────────────────────── */
+
+.sc-hdr {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex: none;
+  padding: 18px var(--o-gutter);
+  border-bottom: 1px solid var(--o-divider);
+}
+.sc-title { letter-spacing: 0.14em; color: var(--o-violet); }
+.sc-title b { color: #fff; }
+.sc-hold { flex: 1; color: var(--o-violet); }
+.sc-keys { color: var(--o-violet); }
+.sc kbd {
+  display: inline-block;
+  min-width: 26px;
+  margin-right: 4px;
+  padding: 2px 7px;
+  border: 1px solid var(--o-divider);
+  border-radius: var(--o-radius);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ── the chain ──────────────────────────────────────────────────────────── */
+
+.sc-chain {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  flex: none;
+  padding: 26px var(--o-gutter) 20px;
+}
+.sc-link { position: relative; padding-right: 18px; }
+.sc-link::after {
+  content: "";
+  position: absolute;
+  left: 34px;
+  right: 0;
+  top: 17px;
+  height: 1px;
+  background: var(--o-divider);
+}
+.sc-link:last-child::after { display: none; }
+.sc-link-dot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--o-bg);
+  font-size: 18px;
+  font-weight: 800;
+}
+.sc-link-label {
+  display: block;
+  margin: 14px 0 4px;
+  font-size: var(--o-fs-label);
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--o-violet);
+}
+.sc-link-value { display: block; font-size: var(--o-fs-num); font-weight: 800; }
+.sc-link-detail {
+  display: block;
+  min-height: 1.35em;
+  color: var(--o-violet);
+}
+.sc-link.ok .sc-link-dot { background: #fff; color: var(--o-bg); }
+.sc-link.ok::after { background: #fff; }
+.sc-link.bad .sc-link-dot { background: var(--o-red); color: #fff; }
+.sc-link.bad .sc-link-value { color: var(--o-red); }
+.sc-link.unknown .sc-link-dot { border: 1.5px dashed var(--o-unknown); }
+.sc-link.unknown .sc-link-label,
+.sc-link.unknown .sc-link-value { color: var(--o-unknown); }
+/* `waiting`: a solid ring, not a dash — "this is where you are", not "not measured".
+   Its label and value stay white: the link is live, it is just not started (spec §3.2, §4.3). */
+.sc-link.waiting .sc-link-dot { border: 1.5px solid #fff; }
+.sc-connect {
+  padding: 6px 16px;
+  border: 1px solid var(--o-divider);
+  border-radius: var(--o-radius);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: var(--o-fs-lead);
+  cursor: pointer;
+}
+.sc-connect[hidden] { display: none; }
+
+/* ── the verdict ────────────────────────────────────────────────────────── */
+
+.sc-verdict {
+  flex: none;
+  padding: 0 var(--o-gutter) 24px;
+  border-bottom: 1px solid var(--o-divider);
+}
+.sc-line { font-size: var(--o-fs-verdict); font-weight: 800; letter-spacing: -0.01em; }
+.sc-verdict.bad .sc-line { color: var(--o-red); }
+.sc-sentence { margin-top: 6px; font-size: var(--o-fs-lead); color: var(--o-violet); }
+
+/* ── the lower half ─────────────────────────────────────────────────────── */
+
+.sc-lower {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  min-height: 0;
+}
+.sc-evidence, .sc-mat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 24px var(--o-gutter);
+}
+.sc-mat { border-left: 1px solid var(--o-divider); justify-content: space-between; }
+.sc-wave { flex: 1; min-height: 120px; width: 100%; display: block; margin: 12px 0 20px; }
+.sc-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+.sc-devices {
+  margin-top: 12px;
+  min-width: 330px;
+  padding: 10px 14px;
+  border: 1px solid var(--o-divider);
+  border-radius: var(--o-radius);
+  background: var(--o-bg);
+  color: #fff;
+  font: inherit;
+  font-size: var(--o-fs-lead);
+}
+.sc-bytes { margin-top: 12px; font-size: var(--o-fs-lead); letter-spacing: 0.08em; white-space: nowrap; }
+.sc-age { font-size: var(--o-fs-label); letter-spacing: 0.14em; color: var(--o-violet); }
+.sc-packet.stale .sc-bytes, .sc-packet.stale .sc-age { color: var(--o-unknown); }
+
+/* ── what the mat is saying ─────────────────────────────────────────────── */
+
+.sc-clock {
+  font-size: var(--o-fs-clock);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-align: center;
+}
+.sc-clock.off { color: var(--o-unknown); }
+.sc-state {
+  margin: 12px 0 18px;
+  letter-spacing: 0.24em;
+  text-align: center;
+  color: var(--o-violet);
+}
+.sc-hands { display: flex; align-items: center; justify-content: center; gap: 22px; }
+.sc-hand {
+  width: 112px;
+  padding: 14px 0;
+  border: 1px solid var(--o-divider);
+  border-radius: var(--o-radius);
+  color: var(--o-violet);
+  font-size: var(--o-fs-label);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-align: center;
+}
+.sc-hand.on { background: #fff; border-color: #fff; color: var(--o-bg); }
+/* The only green on any operator screen is the mat's own light (spec §2.1). */
+.sc-light { width: 46px; height: 46px; border: 1px solid var(--o-divider); border-radius: 50%; }
+.sc-light.on {
+  background: var(--o-go);
+  border-color: var(--o-go);
+  box-shadow: 0 0 22px rgba(46, 230, 160, 0.55);
+}
+
+/* ── the six-item test ──────────────────────────────────────────────────── */
+
+.sc-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 18px;
+  margin-top: 12px;
+}
+.sc-items li { display: flex; align-items: center; gap: 12px; font-size: var(--o-fs-lead); }
+.sc-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 17px;
+  font-weight: 800;
+}
+.sc-items .done .sc-mark { background: #fff; color: var(--o-bg); }
+.sc-items .todo { color: var(--o-unknown); }
+.sc-items .todo .sc-mark { border: 1.5px dashed var(--o-unknown); }
+
+/* prefers-reduced-motion needs no rule here: this screen has no motion, and the waveform keeps
+   redrawing because it is a reading, not an animation (spec §2.3). */
