@@ -27,7 +27,12 @@ Verified *on the merged result*, not just on the branch: `npm test` 257 / 0 / 0,
    plan's amendment**, recorded in ROADMAP's "Immediate next step" alongside UI spec §10.8's `Esc`
    remedy.
 
-**Next, in order:** task **4.5 (maze full-bleed)** → **plan 5** → `finishing-a-development-branch`.
+**Nothing is queued.** The chain, the merge and two post-merge visual fixes are all done. The
+by-eye checks and the signal-check amendment above are the only open work, and both are the owner's.
+
+**Post-merge, on `main`:** `219c5de` bleeds the header's rule and the band out to the window edges
+(the sibling of task 4.5, same reasoning, same guard standard). Suite now **257 / 0 / 0**, smoke
+**54/54**, screens **169/169**.
 
 The runbook below stays because this has now bitten twice, and the next dispatch can hit it again.
 
@@ -115,7 +120,7 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 | Worktree | **gone** — removed at the merge. `.worktrees/` now holds only the `ctf-interuniversitario` symlink, which the config test still needs. |
 | Branch | **`main`** — `engine` was merged as `694e4b8` and deleted. `main` is the only branch. |
 | Node | v24.11.1 (plans need ≥ 24.2) |
-| Suite | `npm test` → **pass 257, fail 0, skipped 0**; `npm run smoke` → **54/54, three serial runs identical**; `npm run screens` → **166/166** |
+| Suite | `npm test` → **pass 257, fail 0, skipped 0**; `npm run smoke` → **54/54**; `npm run screens` → **169/169** |
 | Last commit | `ab6cae4` Record RESULTS and NO SIGNAL as built |
 | Debug ports | **none hardcoded** — the harness takes `0` and reads the bound port from its own profile's `DevToolsActivePort`. Two harnesses at once measured 44999 and 45303, each on its own browser. |
 | Required symlink | `.worktrees/ctf-interuniversitario` → `/home/noob_master/ctf-interuniversitario` — **present**; without it the engine's `config/event.json` test silently *skips* instead of failing |
@@ -283,6 +288,31 @@ Chrome throttles hidden tabs and the mock mat stops ticking without them.
 - There is **no `f` key in the keymap yet** (`Escape, d, 2, r, n, ArrowLeft, ArrowRight, u, s`, plus
   Space); adding `f` for RESULTS is that plan's work.
 - `latestResult(event, table)` and `audienceStandings(table, 8)` are ready in `js/core/scoring.js`.
+
+## Two CSS facts the header/band bleed cost a round to learn (2026-09-20)
+
+Both are general, not specific to this repo, and either would silently waste an afternoon.
+
+- **`overflow-clip-margin` takes no `calc()` in Chrome, and fails silently.**
+  `CSS.supports('overflow-clip-margin','calc((100vw - 1920px)/2)')` is **false**, while a literal
+  `320px` is **true**. A `var()` there *parses* — substitution is deferred — then computes to `0px`,
+  so the element still clips and nothing in the DOM says why. Verified directly in Chrome 153.
+  Use `overflow-x: visible; overflow-y: clip` to release one axis instead: per css-overflow-3 a
+  value is only coerced when its partner is neither `visible` nor `clip`, so that pair survives
+  as written (computed `visible/clip`, confirmed).
+- **An absolutely positioned child offsets from its containing block's *padding* box.** Widening a
+  bar with `margin-inline` + compensating `padding-inline` leaves flowed content exactly in place,
+  but anything `position: absolute; right: …` inside it **moves with the new padding edge**. The
+  kitty walked 320px into the pillarbox while `.hdr` and `.band` measured perfectly. Measuring the
+  container cannot see this — guard the positioned children by name. (`left: 50%` centring is
+  immune: the wider box is still centred on the same point.)
+
+**Pre-existing, unfixed, worth knowing:** ATTRACT's face overhangs the stage's top by **70.2px** at
+2560×1080 — the largest overflow in the app. It is invisible today only because `.attract .face` is
+mask-faded to transparent across its top 16%. On a window *taller* than 16:9 that overhang lands in
+the letterbox, and the mask is the only thing hiding it. `overflow-y: clip` on the stage removes the
+dependence on that coincidence, which is why the bleed kept the vertical clip rather than using
+plain `overflow: visible`.
 
 ## Carry-forward from the maze full-bleed fix (2026-09-19)
 
@@ -564,6 +594,17 @@ _Filled in as each plan lands._
   added `f` to the harness `KEYS` and four smoke checks that press `F` on the real operator window.
   As warned at dispatch, every defect fell in the transcribed half; Tasks 4, 6, 7 and 8 — the
   "run and passing" half — were accurate.
+- **2026-09-20 — Header and band bleed to the window. `219c5de`, on `main`.** The owner asked for the
+  header's rule and the band to reach the window edges, as the maze now does. Done the narrow way:
+  the bars widen by the gutter and take it straight back out of their inline padding, so every `cqw`
+  still resolves against the 16:9 stage and `--stage-w` is untouched. Verified: 257 / 0 / 0, smoke
+  54/54, screens **169/169** with three new guards, and the guard proved to fail on revert
+  (`header 320–2240` against a 0–2560 window). The agent also sampled *pixels* over a white backdrop
+  rather than trusting rects, because a rect cannot see a clip.
+  **The orchestrator's own recipe was wrong twice, and the agent caught both** — see the CSS facts
+  above. Worth remembering when deciding how much review is enough: five dispatches of checking
+  agents' claims found nothing they had not already reported honestly; the one dispatch where the
+  orchestrator supplied the implementation is the one that shipped a bug into the brief.
 - **2026-09-19 — Maze full-bleed. Task 4.5 complete.** The owner reported the three.js scene not
   filling the body width; it was not a regression but the consequence of the spec'd 16:9 stage, with
   the canvas inside it. Fixed by moving the canvas and vignette to a viewport-fixed backdrop and
