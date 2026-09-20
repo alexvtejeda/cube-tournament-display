@@ -141,7 +141,49 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
   - 13 tasks, screens 6 and 7. Its Task 1 refuses to start unless all three are finished.
   - Tasks 4, 6, 7 and 8 carry code that was **run and passed** (27 tests) before the plan was
     written; Tasks 2, 3, 5 and 9–12 are transcriptions. The plan says which is which.
+- [ ] **4.5 · Maze full-bleed** — no plan file; the scoped task below. **Runs after plan 4, before
+  plan 5.** Owner's call 2026-09-19.
 - [ ] **6 · Finish the branch** — `finishing-a-development-branch`, merging `engine` into `main`.
+
+### 4.5 · The maze must fill the window, while the stage stays 16:9
+
+**Reported by the owner 2026-09-19:** the three.js scene does not cover the width of the body. **It
+is not a regression** — `css/tokens.css:28` sets `--stage-w: min(100vw, calc(100vh * 16 / 9))` and
+the canvas lives *inside* `.stage` (`audience.html:17`), so on any window wider than 16:9 the stage
+pillarboxes and the maze stops at the bars. UI spec line 347 (`| Stage | 16:9, --bg-deep |`) makes
+the 16:9 stage the approved design. `npm run screens` renders at exactly 1080p, where stage ==
+viewport, which is why all 125 checks pass and never see it.
+
+**Decision (owner, 2026-09-19): the maze becomes a full-viewport backdrop; the content stage stays
+16:9.** The ambient scene fills the window; every designed screen, its `cqw` layout and the band
+motion keep their approved geometry.
+
+**⚠ The one-line "fix" that must not be made.** Do **not** widen `--stage-w` to `100vw`. It is
+load-bearing for *motion*: UI spec §2.7 uses `translateY(calc(-.1095 * var(--stage-w)))` in the
+RESULTS band keyframes precisely because view-transition pseudo-elements have no container and
+`cqw` cannot reach them. Widening it silently corrupts that geometry and rescales every `cqw`
+measurement in the spec. **The canvas moves; the token does not change.**
+
+Constraints the implementer must respect:
+
+- **`position: fixed` will not escape the stage.** `.stage` has `container-type: size`, which implies
+  layout containment and so makes it the containing block for *fixed* descendants too. The canvas has
+  to move in the DOM, to a body-level backdrop before `.stage`.
+- **`.stage` is `background: var(--bg-deep)`** (`css/audience.css:16`). Left opaque over a backdrop
+  maze, it hides the scene entirely. It has to go transparent, with `body` keeping `--bg-deep`.
+- **`.shade` is stage-relative and screen-keyed.** Its ATTRACT/waiting variants select
+  `.stage[data-screen="attract"] .shade`. If the vignette travels with the maze (it should — a
+  vignette that stops at the stage edge leaves a visible seam), those selectors need a reachable
+  `data-screen`, mirrored onto the backdrop or `body` wherever `js/ui/audience.js` sets it today.
+- **`screens.js` reads `.shade`** — `mazeLit()` hides the screen and its shade to sample the maze
+  alone. The selectors survive a move, but this must be re-run and not assumed.
+- **Verify at a non-16:9 window**, not at 1080p. At 1080p the bug is invisible by construction, so a
+  green `npm run screens` proves nothing about it. The check is: canvas client width == `innerWidth`
+  on a window wider than 16:9, while `.stage` stays 16:9.
+
+**Ordering:** before plan 5, so RESULTS and NO SIGNAL are built on the corrected structure rather
+than retrofitted. Confirm plan 5 does not assume the canvas is a child of `.stage` before dispatching
+it.
 
 **Three plans edit `ROADMAP.md`:** engine Task 18, audience-screens Task 10 (done — it appended a
 paragraph after the Phase-1 summary) and results Task 13, which runs last. **Task 13 must read the
