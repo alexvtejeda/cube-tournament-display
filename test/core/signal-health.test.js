@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diagnose, levelDb, matLine, THRESHOLDS } from '../../js/core/signal-health.js';
+import { diagnose, levelDb, matDelivering, matLine, THRESHOLDS } from '../../js/core/signal-health.js';
 import { emptyTest, tickTest } from '../../js/core/mat-test.js';
 import { packet } from '../../js/drivers/scenarios.js';
 
@@ -163,4 +163,44 @@ test('the mat\'s state line reads the header, and the lost signal first', () => 
   assert.equal(matLine(packet('R', 0)), 'UNA MANO');
   assert.equal(matLine(packet('S', 6440)), 'PARADO');
   assert.equal(matLine(packet('I', 0)), 'EN ESPERA');
+});
+
+// --- matDelivering (UI spec §10.2, §10.6) ---
+
+// `n` packets spread across the window, newest last, all inside it.
+const spread = (n, now) => Array.from({ length: n }, (_, i) => now - THRESHOLDS.windowMs + 1 + i);
+
+test('a mat that has sent nothing is not delivering', () => {
+  assert.equal(matDelivering([], 100000), false);
+});
+
+test('a healthy mat at ten packets a second is delivering', () => {
+  const now = 100000;
+  const steady = Array.from({ length: 20 }, (_, i) => now - 1900 + i * 100);
+  assert.equal(matDelivering(steady, now), true);
+});
+
+test('the boundary is the rate across the window, not a count', () => {
+  const now = 100000;
+  const need = THRESHOLDS.packetsPerSecond * (THRESHOLDS.windowMs / 1000);
+  assert.equal(matDelivering(spread(need, now), now), true, 'exactly the threshold is delivering');
+  assert.equal(matDelivering(spread(need - 1, now), now), false, 'one below is not');
+});
+
+test('packets older than the window are not counted', () => {
+  const now = 100000;
+  const stale = Array.from({ length: 200 }, (_, i) => now - THRESHOLDS.windowMs - 1 - i);
+  assert.equal(matDelivering(stale, now), false);
+});
+
+test('a healthy mat stops delivering about four hundred milliseconds after it goes quiet', () => {
+  // A steady stream that stopped `gap` ago. At ten a second, the window empties past the threshold
+  // once a fifth of it has gone by — the ~400 ms of UI spec §10.2.
+  const at = (gap) => {
+    const now = 100000;
+    const last = now - gap;
+    return matDelivering(Array.from({ length: 40 }, (_, i) => last - i * 100).filter((t) => t > 0), now);
+  };
+  assert.equal(at(300), true, 'a 300 ms gap is not a lost signal');
+  assert.equal(at(600), false, 'a 600 ms gap is');
 });
