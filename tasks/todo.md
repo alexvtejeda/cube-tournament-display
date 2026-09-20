@@ -60,6 +60,10 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
     accepting any answer on the port. Chrome writes the port it actually bound to
     `<user-data-dir>/DevToolsActivePort` (first line), so launch with `--remote-debugging-port=0` and
     read it back. See **the port collision** below for why this is not cosmetic.
+  - Plan 3 already made this easy: it extracted `test/browser/harness.js`, and the port is a
+    **parameter** — `startHarness(9333)` at `test/browser/smoke.js:6`, used at `harness.js:31`.
+    The change is `startHarness(0)` plus the `DevToolsActivePort` read inside the harness, so both
+    `smoke` and `screens` inherit it.
   - 13 tasks, screens 6 and 7. Its Task 1 refuses to start unless all three are finished.
   - Tasks 4, 6, 7 and 8 carry code that was **run and passed** (27 tests) before the plan was
     written; Tasks 2, 3, 5 and 9–12 are transcriptions. The plan says which is which.
@@ -186,8 +190,12 @@ One green run proved nothing here — the very first investigation had a run pas
 that failed.
 
 **The port collision is wider than this repo.** `~/.claude/skills/design-recon/scripts/
-launch-cobrowse.sh` defaults to **the same port 9333**, and before starting it runs
-`pgrep -f "remote-debugging-port=9333"` and **kills whatever it finds**. So a co-browse session
+launch-cobrowse.sh` defaulted to **the same port 9333**, and before starting it runs
+`pgrep -f "remote-debugging-port=<port>"` and **kills whatever it finds**. The root cause: the
+launcher never read `COBROWSE_PORT`. `~/.claude/settings.json` sets it to `9444` and `cobrowse.mjs`
+honours it, but the launcher took `$1` only and fell back to 9333. **Fixed 2026-09-19** — it now
+honours `COBROWSE_PORT`, falling back to `9222`, never 9333. That file is machine-local config and
+is not part of this repo, so the fix is not in this history. So a co-browse session
 started while `npm run smoke` is running kills the smoke test's Chrome mid-run; a smoke run started
 while co-browse holds 9333 attaches to the *visible* browser and drives it. Neither tool would
 report anything sensible. Fixing it here is plan 5's authorized deviation, above.
