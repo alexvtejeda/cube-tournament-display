@@ -1,88 +1,9 @@
 // Browser smoke test: drives the operator window on the mock mat, with the audience window open,
-// through headless Chrome over the DevTools protocol. No dependencies beyond Chrome and Node 24.
+// through headless Chrome.
 //   npm run smoke            (CHROME=/path/to/chrome to override the binary)
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { createStaticServer } from '../../serve.js';
+import { sleep, startHarness, waitFor } from './harness.js';
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const DEBUG_PORT = 9333;
-
-const server = createStaticServer();
-await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const base = `http://localhost:${server.address().port}`;
-const profile = mkdtempSync(join(tmpdir(), 'ctd-chrome-'));
-const chrome = spawn(process.env.CHROME ?? 'google-chrome', [
-  '--headless=new', '--no-sandbox', '--disable-gpu', `--remote-debugging-port=${DEBUG_PORT}`,
-  `--user-data-dir=${profile}`, 'about:blank',
-], { stdio: 'ignore' });
-process.on('exit', () => chrome.kill()); // also when a check throws
-
-async function finish(code) {
-  server.close();
-  chrome.kill();
-  await once(chrome, 'exit');
-  rmSync(profile, { recursive: true, force: true });
-  process.exit(code);
-}
-
-for (let i = 0; i < 50; i += 1) {
-  try {
-    await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/version`);
-    break;
-  } catch {
-    await sleep(200);
-  }
-}
-
-async function openTab(url) {
-  const target = await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/new?${url}`, { method: 'PUT' })).json();
-  const socket = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((resolve) => socket.addEventListener('open', resolve, { once: true }));
-  let lastId = 0;
-  const waiting = new Map();
-  const errors = [];
-  socket.addEventListener('message', (e) => {
-    const message = JSON.parse(e.data);
-    waiting.get(message.id)?.(message);
-    if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description);
-  });
-  const send = (method, params = {}) => new Promise((resolve) => {
-    lastId += 1;
-    waiting.set(lastId, resolve);
-    socket.send(JSON.stringify({ id: lastId, method, params }));
-  });
-  await send('Runtime.enable');
-  const KEYS = {
-    ' ': ['Space', 32], n: ['KeyN', 78], d: ['KeyD', 68], u: ['KeyU', 85], r: ['KeyR', 82],
-    s: ['KeyS', 83], Escape: ['Escape', 27],
-  };
-  return {
-    send,
-    errors,
-    close: () => socket.close(),
-    closeTab: () => fetch(`http://127.0.0.1:${DEBUG_PORT}/json/close/${target.id}`),
-    evaluate: async (expression) =>
-      (await send('Runtime.evaluate', { expression, returnByValue: true })).result?.result?.value,
-    async press(key) {
-      const [code, keyCode] = KEYS[key];
-      // `text` is the character the key types, so only a printable key has one. Sending "Escape"
-      // as text makes Chrome drop the keydown entirely, and the page never hears the key.
-      const text = key.length === 1 ? { text: key } : {};
-      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, ...text, windowsVirtualKeyCode: keyCode });
-      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: keyCode });
-    },
-  };
-}
-
-let failures = 0;
-function check(label, ok, detail = '') {
-  if (!ok) failures += 1;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? `  (${detail})` : ''}`);
-}
+const { base, openTab, check, finish } = await startHarness(9333);
 
 const text = (tab, id) => tab.evaluate(`document.getElementById('${id}')?.textContent ?? document.body.innerText`);
 const phase = async (tab) => (await text(tab, 'status')).match(/phase\s+(\w+)/)?.[1];
@@ -92,8 +13,9 @@ const snapshot = async (tab) => JSON.parse(await text(tab, 'snapshot'));
 // Real mode first, alone: it must load cleanly and offer the connect control. It never touches the
 // microphone until that button is clicked.
 const real = await openTab(`${base}/`);
-await sleep(1500);
-check('real mode loads and offers "Connect mat"', await real.evaluate("[...document.querySelectorAll('button')].some((b) => b.textContent === 'Connect mat')"));
+const offersConnect = "[...document.querySelectorAll('button')].some((b) => b.textContent === 'Connect mat')";
+await waitFor(() => real.evaluate(offersConnect), { what: 'real mode to offer "Connect mat"' });
+check('real mode loads and offers "Connect mat"', await real.evaluate(offersConnect));
 check('real mode has no uncaught errors', real.errors.length === 0, real.errors.join(' | '));
 await real.closeTab();
 await sleep(500); // closing the tab releases its operator lock
@@ -101,7 +23,7 @@ await sleep(500); // closing the tab releases its operator lock
 // A hidden tab's timers are throttled, which would stall the mock mat, so the operator stays in
 // front. The audience only reacts to messages and works from behind.
 const operator = await openTab(`${base}/?driver=mock`);
-await sleep(1500);
+await waitFor(async () => (await phase(operator)) !== undefined, { what: 'the operator window to report a phase' });
 const audience = await openTab(`${base}/audience.html`);
 await operator.send('Page.bringToFront');
 await sleep(800);
@@ -132,8 +54,14 @@ await sleep(8500);
 check('the timer stops → PENDING at 8.00', (await phase(operator)) === 'PENDING' && (await text(operator, 'status')).includes('8.00'));
 check('the audience clock shows 8.00', (await text(audience, 'clock')) === '8.00');
 
+// This key is both a readiness point and the moment the verdict's 3 s on screen begin. Poll for the
+// accept instead of assuming a fixed wait, then hold the rest of the original budget: the two sleeps
+// below measure the verdict's real VERDICT_MS and the standings' STANDINGS_UPDATE_MS from this key.
+const acceptedAt = Date.now();
 await operator.press(' ');
-await sleep(1500);
+await waitFor(async () => (await text(operator, 'status')).includes('attempt 2 of 3'),
+  { what: 'the operator to record the attempt' });
+await sleep(Math.max(0, 1500 - (Date.now() - acceptedAt)));
 check('Space accepts → attempt 2', (await text(operator, 'status')).includes('attempt 2 of 3'));
 check('the audience is shown the verdict', (await snapshot(audience)).verdict?.kind === 'OK');
 await sleep(2000);
@@ -158,8 +86,9 @@ second.close();
 
 await operator.send('Page.bringToFront');
 await operator.send('Page.reload');
-await sleep(1500);
-check('a reload asks: resume or start fresh', (await operator.evaluate('document.body.innerText')).includes('1 recorded attempts'));
+const resumePrompt = async () => String((await operator.evaluate('document.body.innerText')) ?? '').includes('1 recorded attempts');
+await waitFor(resumePrompt, { what: 'the reloaded operator window to ask: resume or start fresh' });
+check('a reload asks: resume or start fresh', await resumePrompt());
 await operator.press('r');
 await sleep(800);
 check('R resumes with the recorded attempt', (await text(operator, 'table')).includes('DNF'));
@@ -206,5 +135,4 @@ check('no uncaught errors in either window', operator.errors.length + audience.e
 
 operator.close();
 audience.close();
-console.log(failures === 0 ? '\nsmoke: all checks passed' : `\nsmoke: ${failures} failed`);
-await finish(failures === 0 ? 0 : 1);
+await finish('smoke');
