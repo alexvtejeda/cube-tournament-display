@@ -40,8 +40,15 @@ export function createSubscriber(onSnapshot) {
 export function claimOperator() {
   return new Promise((resolve) => {
     navigator.locks.request(`${CHANNEL}:operator`, { ifAvailable: true }, (lock) => {
-      resolve(lock !== null);
+      held = lock !== null;
+      resolve(held);
       return lock === null ? undefined : new Promise(() => {});
     });
   });
 }
+
+// The claim's outcome, readable without awaiting it again: SETUP and SIGNAL CHECK both gate on
+// whether this window is the one in charge (operator spec §4.13). False until claimOperator()
+// settles, which is the safe answer while nothing is known.
+let held = false;
+export const holdsOperator = () => held;

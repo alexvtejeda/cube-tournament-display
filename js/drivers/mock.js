@@ -9,6 +9,7 @@ export function createMockDriver() {
   let queue = [];
   let current = null;
   let elapsed = 0;
+  let running = false;
 
   function tick() {
     while (queue.length > 0 && queue[0].t <= elapsed) current = queue.shift().state;
@@ -19,10 +20,18 @@ export function createMockDriver() {
   return {
     async start() {
       if (timer === null) timer = setInterval(tick, PACKET_MS);
+      running = true;
     },
     stop() {
       clearInterval(timer);
       timer = null;
+      running = false;
+    },
+    // True once start() has been called and the driver is running. False before the first start(),
+    // and false again if start() rejected: "never started" and "started and failed" are different
+    // states, and only the first is `waiting` (operator spec §4.3).
+    connected() {
+      return running === true;
     },
     onState(callback) {
       listener = callback;

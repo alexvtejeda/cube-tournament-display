@@ -25,5 +25,10 @@ export function createStore(storage, key = STORAGE_KEY) {
       if (raw !== null) storage.setItem(`${key}:archived:${now}`, raw);
       storage.removeItem(key);
     },
+    // Starting fresh in mock mode: a rehearsal's results can never be wanted back, and archiving
+    // every one of them would grow localStorage without bound (operator spec §4.6).
+    clear() {
+      storage.removeItem(key);
+    },
   };
 }

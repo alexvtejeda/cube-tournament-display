@@ -43,6 +43,18 @@ test('archive keeps the old data under a timestamped key and clears the live one
   assert.deepEqual(store.load(), { status: 'none' });
 });
 
+test('clear removes the log without archiving it', () => {
+  const storage = fakeStorage();
+  const store = createStore(storage);
+  store.save([attempt('alfa', 1, 12470)]);
+  store.clear();
+  assert.deepEqual(store.load(), { status: 'none' });
+  assert.deepEqual(
+    [...storage.items.keys()].filter((k) => k.includes(':archived:')), [],
+    'clear must not leave an archive behind',
+  );
+});
+
 test('a store with its own key never touches another', () => {
   const storage = fakeStorage();
   createStore(storage, `${STORAGE_KEY}:mock`).save([attempt('alfa', 1, 1)]);
