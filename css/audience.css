@@ -215,3 +215,93 @@ img { display: block; }
   50% { opacity: 0; }
   to { opacity: 0; transform: translateY(calc(-.1095 * var(--stage-w))); }
 }
+
+/* ── RESULTS (UI spec §8.3) ─────────────────────────────────────────────────────────────────── */
+/* No band, so the body keeps the band's 10.95cqw as well as its own 39.02cqw. `.body` is already
+   `flex: 1` inside `.frame`, so this needs no height of its own; Task 12 measures it. */
+.results { display: flex; flex-direction: column; align-items: center; justify-content: center;
+           height: 100%; padding: .9cqw 3cqw 1.9cqw; box-sizing: border-box; }
+
+/* The podium, in podium order: 2nd, 1st, 3rd. */
+.results .podium { display: flex; align-items: flex-end; gap: 4.4cqw; }
+.results .step { display: flex; flex-direction: column; align-items: center; }
+.results .step .plate { width: 15cqw; padding: .9cqw 1.3cqw; }
+.results .step.p1 { position: relative; padding-top: calc(11cqw * 618 / 1200); }
+.results .step.p1 .plate { width: 22cqw; padding: 1.3cqw 1.9cqw; position: relative; z-index: 1; }
+.results .step .label { font-size: var(--fs-label); letter-spacing: .24em; color: var(--violet);
+                        margin-top: 1.1cqw; }
+.results .step .time { font-size: var(--fs-lead); font-weight: 800; line-height: 1;
+                       letter-spacing: -.01em; font-variant-numeric: tabular-nums; color: #fff;
+                       margin-top: .4cqw; }
+/* Gold is the leader's colour, as on STANDBY, and there is no silver and no bronze: the podium
+   stands out by size, weight and position alone (§8.3). */
+.results .step.p1 .time { font-size: var(--fs-hero); color: var(--gold-text); }
+
+/* Places 4 to 13. 12.7cqw is ATTRACT's own plate width (§3.3), so these ten change place on the
+   way in but not size. */
+.results .grid { display: grid; grid-template-columns: repeat(5, 12.7cqw); gap: 1.2cqw 2.2cqw;
+                 margin-top: 2.2cqw; padding-top: 1.6cqw; border-top: 1px solid var(--violet-deep); }
+.results .cell .plate { width: 100%; padding: .75cqw 1.1cqw; }
+.results .cell .line { display: flex; justify-content: space-between; align-items: baseline;
+                       margin-top: .55cqw; font-size: var(--fs-lead); }
+.results .cell .place { color: var(--violet); font-weight: 700; }
+.results .cell .time { color: #fff; font-weight: 500; font-variant-numeric: tabular-nums; }
+/* A university that never competed gets words, in label style, where the time would be (§8.6). */
+.results .cell .time.never { font-size: var(--fs-label); letter-spacing: .24em; font-weight: 400;
+                             color: var(--violet); }
+
+/* RootKitty over the winner's plate (§8.4). 11cqw is the band kitty's width, and its opacity and
+   glow are the band kitty's too, so there is no new mascot size and no new colour. The glow is on
+   the wrapper, so it follows whatever the clip leaves visible. */
+.results .kit { position: absolute; top: 0; left: 50%; width: 11cqw; transform: translateX(-50%);
+                z-index: 2; filter: drop-shadow(0 0 2.4cqw rgba(238, 39, 55, .3)); }
+/* aspect-ratio is required: without it the box is 0 tall until the image loads, and so is the
+   climb's 100% — on a slow first load the kitty would have nothing to climb from (§8.4). */
+.results .kit img { width: 100%; height: auto; aspect-ratio: 1200/683; display: block; opacity: .9; }
+
+/* RESULTS arriving from the bridge (§8.5). The offsets are one and two --t-long from the change,
+   as the verdict's +300 ms and +700 ms are offsets (§7.2), so the motion signature keeps its three
+   durations. Nothing here runs when the board was not animated in. */
+@media (prefers-reduced-motion: no-preference) {
+  .arriving .results .step .time,
+  .arriving .results .step .label,
+  .arriving .results .cell .line { animation: fade-in var(--t-step) var(--ease) 800ms both; }
+  @keyframes fade-in { from { opacity: 0; } }
+
+  /* The climb: the kitty rises its own height from just below the plate's edge. While the image is
+     y% of its height below its place, the edge is (9.52 + y)% of its height up from its bottom, so
+     the translate and the clip change together, on one curve, and the clip line stays on the edge.
+     9.52% comes from the asset (§2.4) and changes only if the asset does. */
+  .arriving .results .kit img {
+    animation: climb var(--t-long) var(--ease) 800ms both,
+               paws  var(--t-step) var(--ease) 1600ms forwards;
+  }
+  @keyframes climb { from { translate: 0 100%; clip-path: inset(0 0 109.52% 0); }
+                     to   { translate: 0 0;    clip-path: inset(0 0 9.52% 0); } }
+  @keyframes paws  { from { clip-path: inset(0 0 9.52% 0); } to { clip-path: inset(0); } }
+}
+
+/* ── The bridge (UI spec §2.7, §8.2) ────────────────────────────────────────────────────────── */
+/* On the way in, ATTRACT → Mezcla runs in reverse: the band sinks to the stage's bottom edge, and
+   the plates and the footer come down by its height. Both are clipped to the band's own box, which
+   `::view-transition-group(band)` already has from the audience-screens plan. */
+::view-transition-old(band):only-child { animation-name: band-sink; }
+@keyframes band-sink { to { transform: translateY(100%); } }
+
+::view-transition-new(attract-plates):only-child,
+::view-transition-new(attract-footer):only-child { animation-name: attract-drop; }
+@keyframes attract-drop {
+  from { opacity: 0; transform: translateY(calc(-.1095 * var(--stage-w))); }
+  50% { opacity: 0; }
+}
+
+/* On the way out to RESULTS, the plates move over --t-long and everything else about ATTRACT fades
+   over --t-step. `to-results` is set on the document element for exactly this change, because
+   attract-push — ATTRACT's ordinary exit to Mezcla — must not fire here. */
+.to-results::view-transition-old(attract-face),
+.to-results::view-transition-old(attract-tag),
+.to-results::view-transition-old(attract-footer) {
+  animation-name: fade-out;
+  animation-duration: var(--t-step);
+}
+@keyframes fade-out { to { opacity: 0; } }
