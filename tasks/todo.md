@@ -11,10 +11,10 @@ branch itself, then dispatches the next. It does not execute plan tasks itself.
 
 ## ⚠ READ THIS FIRST — is a dispatch already in flight?
 
-**⚠ PLAN 4 (SETUP) WAS DISPATCHED 2026-09-19 22:50 AND IS RUNNING NOW.** Do not dispatch anything
-onto `.worktrees/engine` until you have proven it is finished — use the check below. Plan 3 is
-finished and verified; plan 4's commits start after `1994bee` and are **unchecked** until the
-orchestrator runs the checklist on them.
+**Plan 4 is finished and verified (2026-09-19 23:25). Nothing is in flight as of that time.**
+Plans 1–4 are all verified and committed.
+
+**Next, in order:** task **4.5 (maze full-bleed)** → **plan 5** → `finishing-a-development-branch`.
 
 The runbook below stays because this has now bitten twice, and the next dispatch can hit it again.
 
@@ -66,13 +66,15 @@ Two traps that cost ~10 tool calls to see through:
 window never dispatched. That is expected — hand-backs survive a clear. Treat it as a claim and
 check the branch anyway.
 
-**Last commit verified by the orchestrator: `1994bee`.** Plans 1, 2 and 3 are all verified and
-committed; nothing on the branch is unchecked.
+**Last commit verified by the orchestrator: `615cf21`.**
 
-**Next, in order:** dispatch **plan 4 (SETUP)** → dispatch **plan 5**, carrying its authorized port
-deviation → `finishing-a-development-branch`. Plan 4 no longer needs a `canConnect` instruction: the
-plan already threads it from the Web Lock claim itself (its decision row 6, and Task 5 Step 3's
-`mat.canConnect = () => holdsOperator()`), which closes plan 2's dead-wiring defect.
+**⚠ `canConnect` is threaded but `OTRA VENTANA TIENE EL MANDO` is STILL UNREACHABLE.** Plan 4 did
+its half: `holdsOperator()` is exported from `js/core/channel.js` and threaded in as
+`mat.canConnect()`. But a window that loses the lock still returns early in `main()` and never
+reaches SETUP, and `signal-check.js` does not pass `canConnect` into its own `diagnose` call. **This
+is now the signal-check plan's amendment, not plan 5's** — do not hand it to plan 5 on the
+assumption plan 4 closed it. It did not, and plan 4's agent flagged that rather than fixing it out
+of scope.
 
 **⚠ Two by-eye checks in plan 3 were deliberately not performed** — Task 8 Step 5 and Task 9 Step 7,
 the mockup and motion comparisons through the visual companion. They need the owner and a visible
@@ -100,8 +102,8 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 | Worktree | `/home/noob_master/cube-tournament-display/.worktrees/engine` |
 | Branch | `engine` — **carries all five plans**, merged back to `main` only at the very end |
 | Node | v24.11.1 (plans need ≥ 24.2) |
-| Suite | `npm test` → **pass 205, fail 0, skipped 0**; `npm run smoke` → **35/35, six runs out of six**; `npm run screens` → **125/125** |
-| Last commit | `1994bee` Let the smoke test's polls see a window that has not loaded yet |
+| Suite | `npm test` → **pass 215, fail 0, skipped 0**; `npm run smoke` → **50/50, three serial runs identical**; `npm run screens` → **125/125** |
+| Last commit | `615cf21` Document SETUP |
 | Required symlink | `.worktrees/ctf-interuniversitario` → `/home/noob_master/ctf-interuniversitario` — **present**; without it the engine's `config/event.json` test silently *skips* instead of failing |
 | `main` merged in | yes, 2026-09-19 — the branch now has the SETUP, NO SIGNAL and RESULTS specs and plans |
 
@@ -123,9 +125,11 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
   the orchestrator: `npm test` → 205 / 0 / 0, `npm run smoke` → 35/35 exit 0 on **six** serial runs,
   tree clean, all 11 commits carry both trailers, `vendor/stackmat.js` byte-identical.
   **Two by-eye checks remain open for the owner** — see the header.
-- [ ] **4 · SETUP** — `docs/superpowers/plans/2026-09-19-setup.md` (needs 1 and 2)
-  - 7 tasks, screen 9. Its Task 1 verifies the engine and signal-check groundwork before touching
-    anything.
+- [x] **4 · SETUP** — `docs/superpowers/plans/2026-09-19-setup.md` — **DONE 2026-09-19.** All 7
+  tasks committed, `4554a46`..`615cf21`. Verified by the orchestrator: `npm test` → 215 / 0 / 0,
+  `npm run smoke` → 50/50 exit 0 on three serial runs with identical check lists, `npm run screens`
+  → 125/125, tree clean, all seven commits carry both trailers, `vendor/stackmat.js` byte-identical,
+  `docs/superpowers/` untouched. **The weakest plan of the four — 15 defects, see Review.**
 - [ ] **5 · RESULTS and NO SIGNAL** — `docs/superpowers/plans/2026-09-19-results-and-no-signal.md`
   (needs 1, 2 and 3)
   - **AUTHORIZED DEVIATION, owner's call 2026-09-19: fix the hardcoded debug port.** Plan 5 extends
@@ -141,6 +145,11 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
   - 13 tasks, screens 6 and 7. Its Task 1 refuses to start unless all three are finished.
   - Tasks 4, 6, 7 and 8 carry code that was **run and passed** (27 tests) before the plan was
     written; Tasks 2, 3, 5 and 9–12 are transcriptions. The plan says which is which.
+  - **⚠ Expect the transcriptions to be wrong, and dispatch saying so.** Plan 4's unrun tasks were
+    not near-misses: Task 5's identifiers were *invented wholesale* and Task 6 was written against a
+    test framework this repo has never used. Plan 5 has **eight** transcribed tasks. The dispatch
+    must tell the agent to read the real file the moment a snippet does not fit, and that reporting
+    a plan defect is success, not failure — that is exactly what kept plan 4 honest.
 - [ ] **4.5 · Maze full-bleed** — no plan file; the scoped task below. **Runs after plan 4, before
   plan 5.** Owner's call 2026-09-19.
 - [ ] **6 · Finish the branch** — `finishing-a-development-branch`, merging `engine` into `main`.
@@ -252,6 +261,41 @@ Chrome throttles hidden tabs and the mock mat stops ticking without them.
 - There is **no `f` key in the keymap yet** (`Escape, d, 2, r, n, ArrowLeft, ArrowRight, u, s`, plus
   Space); adding `f` for RESULTS is that plan's work.
 - `latestResult(event, table)` and `audienceStandings(table, 8)` are ready in `js/core/scoring.js`.
+
+## Carry-forward from the SETUP dispatch (2026-09-19)
+
+Reported by plan 4's agent and verified against the branch. **The first two change behaviour that
+existing code and tests relied on.**
+
+- **⚠ The mock mat no longer auto-connects — a production change, made deliberately.**
+  `js/ui/operator.js` had `let connected = mock` and an unconditional `if (mock) driver.start()`, so
+  a rehearsal reported itself connected before anyone connected it, which made `Conectar` and its
+  `Enter` key untestable. It is now `connected = false`, started by `connect()` alone, commented in
+  place. **Any new browser check on `?driver=mock` must connect first** (`press('Enter')` on SETUP,
+  or click `#su-connect`) before `play(tab, '<scenario>')` yields a single packet. Five existing
+  smoke checks were rewritten, not deleted, because they assumed the window opens on the event.
+- **⚠ `js/ui/operator.js` now has a `screen` state machine** — `'setup' | 'event' | 'check'`, plus
+  `checkFrom` so `S` returns where it came from. **Anything that tested `checkOpen` must read
+  `screen`.** The keydown handler short-circuits on `'setup'` and `'check'` *before* the reducer.
+- **`state` is null until `enterEvent({ fresh, archive })` runs.** Any new code in `run()` that
+  touches `state` at run scope throws on load. That single door is what makes operator spec §4.12
+  true (no snapshot, no event until an action is taken).
+- **`resetMidSolve` is the scenario to prove the mat with.** It is the only single scenario that
+  ticks all six items *and* parks the mock on `S 6000` instead of `I 0` — `reset` or
+  `falseStart`+`reset` leave it repeating `I 0`, which auto-arms the reducer out of SCRAMBLE and
+  breaks four downstream checks. Budget ~12 s and pass `{ timeout: 20000 }` to `waitFor`.
+- **Smoke is now 50 checks.** `Enter: ['Enter', 13]` was added to the harness `KEYS`; add any further
+  named key there and never send it with `text`.
+- **`store.clear()` exists beside `archive(now)`** — rehearsals clear, real events archive. The rule
+  lives in `setupGate().fresh.archive`, not in the caller.
+- **The typed confirm (operator spec §4.6) has no browser coverage.** It only appears for a non-mock
+  event with recorded attempts, and smoke runs on `?driver=mock` where `confirm` is always `'none'`.
+  The gate logic is unit-tested; the input, its `Enter`/`Esc` and the `dataset.open` rebuild are not.
+  Worth a check in whichever plan next touches `smoke.js`.
+- **The operator *event* view is still `operator-debug-view.js`** — SETUP replaced only the first
+  screen. Screen 10 will hide/show `#operator` through the same `screen` variable.
+- **`ROADMAP.md` row 9 is now Decided**, and its "Immediate next step" section is stale in other ways
+  plan 4 did not touch (it still calls SIGNAL CHECK merely planned). Results Task 13 must read it.
 
 ## Carry-forward from the audience-screens dispatch (2026-09-19)
 
@@ -448,6 +492,25 @@ uncommitted: two agents, one worktree.
 
 _Filled in as each plan lands._
 
+- **2026-09-19 — SETUP, Tasks 1–7. Plan 4 complete.** Verified here: 215 / 0 / 0, smoke 50/50 exit 0
+  on three serial runs with identical check lists, screens 125/125, tree clean, seven commits with
+  both trailers, `vendor/stackmat.js` byte-identical, `docs/superpowers/` untouched.
+  **This was the weakest plan of the four, and the agent's judgement is what saved it.** It reported
+  **15 defects**. The two structural ones: **Task 5's transcription is a sketch, not a patch** —
+  `showEventWindow`, `publishSnapshot`, `matCommand`, `check.open({onClose})` are all invented
+  identifiers — and **Task 6 is written for Puppeteer**, which this repo has never used
+  (`page.$eval`, `openOperator`, `runFullMatTest`). Task 4 alone carried six: a class vocabulary that
+  does not exist in `css/operator.css` (copied literally, SETUP renders unstyled), `mat.start()`
+  where the façade has `connect(id)`, `?.name` where teams carry `university`, a device picker drawn
+  but never populated, and — a real bug, not a mismatch — `diagnose({ permission: mat.permission() })`
+  passing a **Promise**, which would have reported a denied microphone as *Permitido*.
+  **One production change, outside the plan and correctly reasoned:** the mock mat no longer
+  auto-connects. The old `connected = mock` made a rehearsal claim a connection nobody made, and made
+  `Conectar`/`Enter` untestable. Verified here that it breaks neither gate.
+  **One honest refusal worth keeping:** it declined to remove `main()`'s early return for a refused
+  window, because the plan never asked and an existing smoke check depends on it — so `canConnect` is
+  now threaded but `OTRA VENTANA TIENE EL MANDO` is still unreachable. It flagged that instead of
+  fixing it out of scope. See the header: that amendment is the signal-check plan's, not plan 5's.
 - **2026-09-19 — Audience screens, Tasks 1–10. Plan 3 complete.** Verified here, not just claimed:
   205 / 0 / 0, `npm run smoke` 35/35 exit 0 on six serial runs, tree clean, eleven commits each with
   both trailers, `vendor/stackmat.js` byte-identical by SHA, nothing under `docs/superpowers/`
