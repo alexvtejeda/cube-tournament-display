@@ -1,0 +1,31 @@
+/* Shared design tokens (UI spec §2.1–§2.2). The palette is the CTF site's own, plus --go. Sizes are
+   in cqw of the audience stage, so they scale with the projector. */
+:root {
+  --bg-deep: #02010c;
+  --violet-deep: #231f66; /* dividers and plate borders only: 1.44:1 on --bg-deep, never text */
+  --violet: #aba6f7;
+  --gold-text: #ffea95;
+  --red: #ee2737;         /* a time past the cutoff: RUNNING, and PENDING's review of it */
+  --go: #2ee6a0;          /* the mat's green light, and nothing else */
+  --plate: #f7f7f7;
+  --name: #e8e6ff;
+  --empty-slot: rgba(171, 166, 247, .45); /* --violet at 45%: an empty standings slot, and nothing else */
+
+  --radius: 1.26cqw;
+  --fs-label: 1.05cqw;
+  --fs-body: 1.38cqw;
+  --fs-lead: 2.2cqw;
+  --fs-hero: 4.4cqw;
+  --fs-clock: 13.6cqw;
+
+  /* The motion signature: one curve and three durations, and nothing else. */
+  --ease: cubic-bezier(.33, 1, .68, 1);
+  --t-short: 200ms; /* colour changes; the verdict's tag entering and leaving */
+  --t-step: 400ms;  /* quick fades */
+  --t-long: 800ms;  /* every screen change and standings update */
+
+  /* The stage's width. View-transition pseudo-elements have no container, so cqw cannot reach them. */
+  --stage-w: min(100vw, calc(100vh * 16 / 9));
+
+  --font: "roc-grotesk-variable", "roc-grotesk", system-ui, sans-serif;
+}

@@ -8,7 +8,15 @@ const { base, openTab, check, finish } = await startHarness(9333);
 const text = (tab, id) => tab.evaluate(`document.getElementById('${id}')?.textContent ?? document.body.innerText`);
 const phase = async (tab) => (await text(tab, 'status')).match(/phase\s+(\w+)/)?.[1];
 const play = (tab, name) => tab.evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent === '${name}').click()`);
-const snapshot = async (tab) => JSON.parse(await text(tab, 'snapshot'));
+const screen = (tab) => tab.evaluate("document.getElementById('stage').dataset.screen");
+// The audience window loads the maze before it listens, so it can take a moment to draw at all.
+const firstScreen = async (tab) => {
+  for (let i = 0; i < 25 && (await screen(tab)) === 'waiting'; i += 1) await sleep(200);
+  return screen(tab);
+};
+const soloClock = (tab) => tab.evaluate("document.querySelector('.solo .digits')?.textContent");
+const soloStatus = (tab) => tab.evaluate("document.querySelector('.solo .status')?.textContent");
+const filledSlots = (tab) => tab.evaluate("document.querySelectorAll('.side .row:not(.empty)').length");
 
 // Real mode first, alone: it must load cleanly and offer the connect control. It never touches the
 // microphone until that button is clicked.
@@ -29,22 +37,23 @@ await operator.send('Page.bringToFront');
 await sleep(800);
 
 check('operator starts in STANDBY', (await phase(operator)) === 'STANDBY');
-check('an audience window opened late catches up', (await snapshot(audience)).phase === 'STANDBY');
+check('an audience window opened late catches up: ATTRACT', (await firstScreen(audience)) === 'attract');
 
 await operator.press('n');
 await sleep(2000);
 const scramble = await text(operator, 'scramble');
 check('N calls the first university, with a scramble', (await phase(operator)) === 'SCRAMBLE' && scramble.length > 20, scramble);
-check('the audience gets the cube preview', await audience.evaluate("!!document.querySelector('#cube svg')"));
+check('the audience shows Mezcla with the cube preview', (await screen(audience)) === 'mezcla'
+  && await audience.evaluate("!!document.querySelector('.net svg')"));
 
 await play(operator, 'reset');
 await sleep(400);
 check('mat at 0.00 → ARMED', (await phase(operator)) === 'ARMED');
-check('the audience clock waits at 15', (await text(audience, 'clock')) === '15');
+check('the audience clock waits at 15', (await soloClock(audience)) === '15');
 
 await operator.press(' ');
 await sleep(1300);
-const countdown = await text(audience, 'clock');
+const countdown = await soloClock(audience);
 check('Space starts the countdown on the audience', ['14', '13'].includes(countdown), countdown);
 
 await play(operator, 'cleanSolve');
@@ -52,7 +61,7 @@ await sleep(2500);
 check('the solve starts → RUNNING', (await phase(operator)) === 'RUNNING');
 await sleep(8500);
 check('the timer stops → PENDING at 8.00', (await phase(operator)) === 'PENDING' && (await text(operator, 'status')).includes('8.00'));
-check('the audience clock shows 8.00', (await text(audience, 'clock')) === '8.00');
+check('the audience shows PENDING at 8.00', (await screen(audience)) === 'pending' && (await soloClock(audience)) === '8.00');
 
 // This key is both a readiness point and the moment the verdict's 3 s on screen begin. Poll for the
 // accept instead of assuming a fixed wait, then hold the rest of the original budget: the two sleeps
@@ -63,11 +72,12 @@ await waitFor(async () => (await text(operator, 'status')).includes('attempt 2 o
   { what: 'the operator to record the attempt' });
 await sleep(Math.max(0, 1500 - (Date.now() - acceptedAt)));
 check('Space accepts → attempt 2', (await text(operator, 'status')).includes('attempt 2 of 3'));
-check('the audience is shown the verdict', (await snapshot(audience)).verdict?.kind === 'OK');
+check('the audience is shown the verdict', (await screen(audience)) === 'pending' && (await soloStatus(audience)) === 'TIEMPO VÁLIDO');
 await sleep(2000);
-const after = await snapshot(audience);
-check('the verdict ends after 3 s, and the standings wait to update', after.verdict === null
-  && after.standingsBefore?.length === 0 && after.standings.length === 1);
+check('the verdict ends after 3 s, and the standings wait to update', (await screen(audience)) === 'mezcla'
+  && (await filledSlots(audience)) === 0);
+await sleep(1000);
+check('the standings update after the screen change', (await filledSlots(audience)) === 1);
 await operator.press('u');
 await sleep(300);
 check('U reopens PENDING', (await phase(operator)) === 'PENDING');
@@ -99,7 +109,7 @@ await operator.press('n');
 await sleep(2000);
 check('a university is up again', (await phase(operator)) === 'SCRAMBLE');
 const scrambleBefore = await text(operator, 'scramble');
-const audienceBefore = (await snapshot(audience)).phase;
+const audienceBefore = await screen(audience);
 
 await operator.press('s');
 await sleep(700);
@@ -109,7 +119,7 @@ check('the check names the mat it is listening to', (await text(operator, 'sc-ch
 await play(operator, 'cleanSolve');
 await sleep(4000);
 check('a whole solve at the mat reaches neither the event nor the room',
-  (await phase(operator)) === 'SCRAMBLE' && (await snapshot(audience)).phase === audienceBefore);
+  (await phase(operator)) === 'SCRAMBLE' && (await screen(audience)) === audienceBefore);
 check('but the check hears it', (await text(operator, 'sc-clock')) !== '—');
 check('and its test ticks', !(await text(operator, 'sc-chain')).includes('0 de 6'));
 

@@ -1,0 +1,188 @@
+/* Audience window (UI spec §2–§7). Values are the spec's; the mockups it names are the visual
+   reference. The mockups were drawn under this reset, so it stays. */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+body { display: grid; place-items: center; overflow: hidden; background: var(--bg-deep); }
+img { display: block; }
+
+/* The 16:9 stage, as large as the window allows. */
+.stage {
+  position: relative;
+  width: var(--stage-w);
+  aspect-ratio: 16 / 9;
+  container-type: size;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: #fff;
+  font-family: var(--font);
+}
+.maze { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; }
+.shade {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(120% 92% at 50% 106%, rgba(2,1,12,0) 0%, rgba(2,1,12,.70) 60%, rgba(2,1,12,.95) 100%);
+}
+.stage[data-screen="attract"] .shade,
+.stage[data-screen="waiting"] .shade {
+  background:
+    radial-gradient(58% 46% at 50% 38%, rgba(5,4,20,.60) 0%, rgba(5,4,20,.30) 45%, transparent 72%),
+    radial-gradient(80% 65% at 50% 50%, transparent 38%, rgba(5,4,20,.65) 100%);
+}
+.screen { position: relative; z-index: 3; height: 100%; }
+
+/* Shared pieces (§2.3, §2.7) */
+.plate {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--plate); border: 1px solid var(--violet-deep); border-radius: var(--radius);
+}
+.plate img { width: 100%; height: auto; }
+.label { font-size: var(--fs-label); letter-spacing: .24em; color: var(--violet); }
+.name { font-size: var(--fs-body); letter-spacing: .14em; color: var(--violet); text-transform: uppercase; }
+/* A piece of text with an identity of its own is one box, so it can move on a screen change. */
+.piece { display: inline-block; }
+/* The divider at a text block's left edge, drawn as an element so it can move. */
+.rule { position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--violet-deep); }
+
+/* ATTRACT (§3) */
+.attract { height: 100%; display: flex; flex-direction: column; padding: 2.4cqw 3cqw 2.2cqw; }
+.attract .hero {
+  --face-w: 34cqw; --logo-w: 30cqw;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.attract .eyes {
+  display: flex; align-items: center; justify-content: center;
+  margin-top: calc(var(--face-w) * -0.19); margin-bottom: calc(var(--face-w) * -0.20);
+}
+.attract .face {
+  position: relative; top: calc(var(--logo-w) * -0.1);
+  width: var(--face-w); height: auto;
+  -webkit-mask-image:
+    radial-gradient(ellipse 66% 78% at 50% 48%, #000 40%, transparent 80%),
+    linear-gradient(to bottom, transparent 0%, transparent 16%, rgba(0,0,0,.42) 34%, #000 52%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(ellipse 66% 78% at 50% 48%, #000 40%, transparent 80%),
+    linear-gradient(to bottom, transparent 0%, transparent 16%, rgba(0,0,0,.42) 34%, #000 52%);
+  mask-composite: intersect;
+}
+.attract .title { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; }
+.attract .logo {
+  width: var(--logo-w); height: auto;
+  filter: drop-shadow(0 0 18px rgba(124,92,255,.55)) drop-shadow(0 0 44px rgba(124,92,255,.35));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .attract .logo { animation: logo-glow-pulse 4s ease-in-out infinite; }
+}
+@keyframes logo-glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 16px rgba(124,92,255,.45)) drop-shadow(0 0 38px rgba(124,92,255,.28)); }
+  50% { filter: drop-shadow(0 0 22px rgba(124,92,255,.65)) drop-shadow(0 0 54px rgba(124,92,255,.42)); }
+}
+.attract .tag {
+  margin-top: 1.4cqw;
+  font-size: var(--fs-lead); font-weight: 700; letter-spacing: .28em; text-indent: .28em;
+  text-shadow: 0 0 1.6cqw rgba(2,1,12,.9);
+}
+.attract .unis { display: grid; grid-template-columns: repeat(28, minmax(0, 1fr)); gap: .85cqw; margin-top: 1.5cqw; }
+.attract .plate { grid-column: span 4; padding: .75cqw 1.1cqw; }
+.attract .plate:nth-child(8) { grid-column: 3 / span 4; }
+.attract .soon {
+  margin-top: 1.4cqw; text-align: center;
+  font-size: var(--fs-body); font-weight: 500; letter-spacing: .2em; text-indent: .2em;
+  text-shadow: 0 0 .9cqw rgba(2,1,12,.95), 0 .12cqw .45cqw rgba(2,1,12,.9);
+}
+
+/* The frame: header, body, band (§4.2, §5.3) */
+.frame { height: 100%; display: flex; flex-direction: column; }
+.hdr {
+  display: flex; align-items: center; justify-content: space-between; gap: 2cqw;
+  padding: 1.5cqw 2.2cqw; border-bottom: 1px solid var(--violet-deep);
+  font-size: var(--fs-body); letter-spacing: .14em; color: var(--violet);
+}
+.hdr img { height: 3.2cqw; }
+.hdr b { color: #fff; }
+.body { flex: 1; min-height: 0; }
+.band {
+  position: relative; z-index: 3;
+  display: flex; align-items: center; gap: 2.2cqw;
+  padding: 2.2cqw; border-top: 1px solid var(--violet-deep); background: rgba(2,1,12,.72);
+}
+.net { width: 8.7cqw; aspect-ratio: 137 / 102; }
+.net svg { display: block; width: 100%; height: 100%; }
+.scr { margin-top: .5cqw; font-size: var(--fs-lead); font-weight: 500; line-height: 1.2; white-space: nowrap; }
+.scr.wait { color: var(--violet); }
+.kitty {
+  --kw: 11cqw;
+  position: absolute; z-index: 2; right: 2.2cqw; bottom: calc(var(--kw) * 0.02);
+  width: var(--kw); opacity: .9;
+  filter: drop-shadow(0 0 2.4cqw rgba(238,39,55,.3));
+}
+
+/* STANDBY: Resultado and Mezcla (§4.2) */
+.standby { height: 100%; display: grid; grid-template-columns: 62% 38%; }
+.standby .main {
+  display: flex; flex-direction: column; justify-content: center; min-height: 0;
+  padding: 2.1cqw 2.3cqw; border-right: 1px solid var(--violet-deep);
+}
+.standby .who { display: flex; align-items: stretch; gap: 2.2cqw; margin-top: 1.1cqw; }
+.standby .plate { width: 22cqw; padding: 1.3cqw 1.9cqw; }
+.standby .figure { position: relative; display: flex; flex-direction: column; justify-content: center; padding-left: 2.2cqw; }
+.standby .big { margin-top: .5cqw; font-size: var(--fs-hero); font-weight: 800; line-height: 1; letter-spacing: -.01em; }
+.standby .big.time { font-variant-numeric: tabular-nums; }
+.standby .big small { margin-left: .6cqw; font-size: var(--fs-body); font-weight: 500; letter-spacing: .14em; color: var(--violet); }
+.standby .sub { margin-top: .9cqw; font-size: var(--fs-body); font-weight: 500; letter-spacing: .14em; color: var(--violet); }
+.standby .sub b { color: #fff; font-weight: 800; }
+.standby .main .name { margin-top: 1.1cqw; }
+.standby .side { display: flex; flex-direction: column; min-height: 0; padding: 1.9cqw; }
+.standby .side > .label { margin-bottom: 1cqw; }
+.row {
+  display: grid; grid-template-columns: 2.2cqw 1fr auto; gap: .85cqw; align-items: baseline;
+  padding: .38cqw 0; border-bottom: 1px solid rgba(35,31,102,.5); font-size: var(--fs-body);
+}
+.row .r { color: var(--violet); font-weight: 700; }
+.row .u { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--name); }
+.row .t { font-variant-numeric: tabular-nums; font-weight: 500; }
+.row.now:not(.lead) .u { color: #fff; font-weight: 800; }
+.row.lead {
+  margin: 0 -.8cqw; padding-left: .8cqw; padding-right: .8cqw;
+  border-radius: var(--radius); background: rgba(171,166,247,.1);
+}
+.row.lead .r, .row.lead .u, .row.lead .t { color: var(--gold-text); font-weight: 800; }
+/* An empty slot waits to be filled: its rank and a dashed divider, in the empty-slot colour. */
+.row.empty {
+  border-bottom-color: transparent;
+  background: repeating-linear-gradient(90deg, var(--empty-slot) 0 .55cqw, transparent .55cqw .95cqw) left bottom / 100% 1px no-repeat;
+}
+.row.empty .r { color: var(--empty-slot); }
+
+/* ARMED, RUNNING and PENDING (§5.3, §6.2, §7.4) */
+.solo {
+  height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(52% 58% at 50% 55%, rgba(2,1,12,.72) 0%, rgba(2,1,12,.4) 55%, transparent 80%);
+}
+.solo .who { display: flex; align-items: center; gap: 1.6cqw; }
+.solo .plate { width: 13cqw; padding: .75cqw 1.1cqw; }
+.solo .txt {
+  position: relative; padding-left: 1.6cqw;
+  font-size: var(--fs-body); letter-spacing: .14em; color: var(--violet); line-height: 1.5;
+}
+.solo .txt b { color: #fff; font-weight: 800; }
+.solo .clock {
+  position: relative; margin-top: 1.5cqw; color: #fff;
+  font-size: var(--fs-clock); font-weight: 800; line-height: .9; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.solo .digits { display: inline-block; }
+.solo .status { margin-top: 1.2cqw; font-size: var(--fs-body); letter-spacing: .24em; color: var(--violet); }
+.solo .clock.waiting, .solo .clock.provisional { color: var(--violet); }
+.solo .clock.go, .solo .status.go { color: var(--go); }
+.solo .clock.over, .solo .status.over { color: var(--red); }
+/* The verdict's tag (§7.2): outside the flow at the clock's right edge, so the clock never
+   re-centres because of it. Hidden until it enters; it leaves by sliding into the clock. */
+.solo .penalty {
+  position: absolute; left: 100%; top: .06em; margin-left: .12em;
+  font-size: var(--fs-hero); letter-spacing: -.01em; color: #fff;
+  opacity: 0; transform: translateY(.25em);
+}
+.solo .clock.penalty-in .penalty { opacity: 1; transform: none; }
+.solo .clock.penalty-out .penalty { opacity: 0; transform: translateX(-.35em); }
