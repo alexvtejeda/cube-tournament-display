@@ -305,3 +305,28 @@ img { display: block; }
   animation-duration: var(--t-step);
 }
 @keyframes fade-out { to { opacity: 0; } }
+
+/* ── NO SIGNAL (UI spec §10.3) ──────────────────────────────────────────────────────────────── */
+/* ARMED's body with the clock block replaced. `.solo` carries the who line's own layout, which is
+   unchanged, so only what sits below it is written here. */
+.nosignal .headline { font-size: var(--fs-hero); font-weight: 800; letter-spacing: -.01em;
+                      color: #fff; margin-top: 1.5cqw; }
+.nosignal .sentence { font-size: var(--fs-body); font-weight: 500; color: var(--violet);
+                      line-height: 1.7; margin-top: 1.6cqw; }
+.nosignal .sentence b { color: #fff; font-weight: 800; }
+.nosignal .label { font-size: var(--fs-label); letter-spacing: .24em; color: var(--violet);
+                   margin-top: 2.4cqw; }
+.nosignal .frozen { font-size: var(--fs-hero); font-weight: 800; letter-spacing: -.01em;
+                    font-variant-numeric: tabular-nums; color: var(--violet); margin-top: .6cqw; }
+/* Past the cutoff the frozen time keeps RUNNING's red, because it is still true (§7.1). */
+.nosignal .frozen.over { color: var(--red); }
+
+/* The header's centre, empty on every other screen (§4.2). Absolute, so the logo and the counter
+   do not move when it appears. The word is --violet and only the dot is --red: red keeps its one
+   text role, a time past the cutoff (§2.1). */
+.hdr { position: relative; }
+.hdr .sig { position: absolute; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: .7cqw; color: var(--violet); }
+.hdr .sig:empty { display: none; }
+.hdr .sig .dot { width: .78cqw; height: .78cqw; border-radius: 50%; background: var(--red);
+                 display: block; }
