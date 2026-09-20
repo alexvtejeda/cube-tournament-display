@@ -12,6 +12,7 @@
     "start": "node serve.js",
     "test": "node --test \"test/**/*.test.js\"",
     "smoke": "node test/browser/smoke.js",
+    "screens": "node test/browser/screens.js",
     "gen-event": "node tools/gen-event.js"
   },
   "dependencies": {

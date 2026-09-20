@@ -11,6 +11,9 @@ node_modules/
 *.local.json
 exports/
 
+# Screenshots from npm run screens
+test/browser/out/
+
 # OS / editor
 .DS_Store
 .idea/
