@@ -27,8 +27,8 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 | Worktree | `/home/noob_master/cube-tournament-display/.worktrees/engine` |
 | Branch | `engine` — **carries all five plans**, merged back to `main` only at the very end |
 | Node | v24.11.1 (plans need ≥ 24.2) |
-| Suite | `npm test` → **pass 139, fail 0, skipped 0**; `npm run smoke` → **23/23, exit 0** |
-| Last commit | `8af86af` Document running the engine and record what it built |
+| Suite | `npm test` → **pass 173, fail 0, skipped 0**; `npm run smoke` → **34/34 when it passes, but see Blocker** |
+| Last commit | `4ac4795` Note the signal check in the README |
 | Required symlink | `.worktrees/ctf-interuniversitario` → `/home/noob_master/ctf-interuniversitario` — **present**; without it the engine's `config/event.json` test silently *skips* instead of failing |
 | `main` merged in | yes, 2026-09-19 — the branch now has the SETUP, NO SIGNAL and RESULTS specs and plans |
 
@@ -41,10 +41,10 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
 - [x] **1 · Engine** — `docs/superpowers/plans/2026-09-18-tournament-engine.md` — **DONE 2026-09-19.**
   All 18 tasks committed, one commit each. Verified by the orchestrator, not just claimed:
   `npm test` → pass 139 / fail 0 / skipped 0, and `npm run smoke` → all 23 checks, exit 0.
-- [ ] **2 · Signal check** — `docs/superpowers/plans/2026-09-19-signal-check.md` (needs 1)
-  - Creates `js/core/signal-health.js` with `THRESHOLDS`, which plans 3 and 5 both read.
-  - ⚠ Its Conventions carry a bullet saying the `waiting`-state amendment was **not** run. Expect
-    its tests to need a real first execution: 17 tests in one file, 34 in the suite it names.
+- [x] **2 · Signal check** — `docs/superpowers/plans/2026-09-19-signal-check.md` — **DONE 2026-09-19.**
+  All 8 tasks committed, `ccf3b33`..`4ac4795`. `npm test` → 173 / 0 / 0, exactly the count the
+  amended Conventions derived; `signal-health.test.js` is 17. The unrun `waiting` amendment executed
+  correctly on its first run with no edits. Smoke reaches 34/34 — but see **Blocker** below.
 - [ ] **3 · Audience screens** — `docs/superpowers/plans/2026-09-18-audience-screens.md` (needs 1)
   - 10 tasks, screens 1–5. Creates `js/ui/audience-screens.js`, `js/ui/audience.js`,
     `css/tokens.css`, `css/audience.css` and the browser harness that plan 5 extends.
@@ -121,6 +121,44 @@ Chrome throttles hidden tabs and the mock mat stops ticking without them.
 - There is **no `f` key in the keymap yet** (`Escape, d, 2, r, n, ArrowLeft, ArrowRight, u, s`, plus
   Space); adding `f` for RESULTS is that plan's work.
 - `latestResult(event, table)` and `audienceStandings(table, 8)` are ready in `js/core/scoring.js`.
+
+---
+
+## ⚠ Blocker — `npm run smoke` is flaky since plan 2, and plan 3 inherits it
+
+**Found by the orchestrator on 2026-09-19, after plan 2.** Not a defect in plan 2's logic; its tests
+and its screen are sound. This is about the gate the whole chain is verified with.
+
+**Symptom.** `npm run smoke` fails intermittently, most often on its *first* check,
+`real mode loads and offers "Connect mat"`. Measured on this machine: **1 clean run in 6**, with the
+port confirmed free and Chrome fully exited between runs. Different checks fail on different runs,
+which is what made it look like noise.
+
+**Root cause, confirmed by probe.** Plan 2's Task 6 added
+`<link rel="stylesheet" href="https://use.typekit.net/frw4sme.css">` to `index.html`, in `<head>`
+**above** the classic `<script>` tags. A pending stylesheet blocks execution of the scripts after it,
+so the operator window's boot is gated on an external CDN. The `Connect mat` button appeared after
+**1284 ms, 4394 ms and 2028 ms** in three consecutive probes — and the smoke check asserts at a
+hardcoded `await sleep(1500)`. The window straddles the timeout. At plan 1 (`8af86af`) `<head>` had
+no external stylesheet and smoke ran 23/23 cleanly, twice.
+
+Two consequences, one of which is not about tests:
+
+1. **The gate is unreliable**, so any agent running plan 3, 4 or 5 will see red that its own work did
+   not cause — and may "fix" it by weakening an assertion.
+2. **The operator window cannot start until a font CDN answers.** For a tournament that may run on a
+   bad venue connection or none, that is a product question, not a test question. The font itself is
+   deliberate (plan 3 asserts roc-grotesk loads, and adds the same link to `audience.html`).
+
+**Why it was not simply fixed here.** Plan 3 **replaces `test/browser/smoke.js` whole** (its Task at
+line 1281) and its replacement keeps the same `await sleep(1500)` pattern, so a fix made now to that
+file is overwritten by the next plan in the chain. Plan 3 also creates `test/browser/harness.js` —
+the natural home for a `waitFor(predicate)` helper, if that is the route chosen.
+
+**A second, unrelated hazard the same investigation turned up:** `smoke.js` hardcodes
+`DEBUG_PORT = 9333` and its readiness loop breaks as soon as *anything* answers
+`/json/version`. Two runs started back to back make the second drive the first's dying Chrome while
+its profile is being deleted. Never run two smoke runs concurrently; wait for the port to close.
 
 ---
 
@@ -204,6 +242,20 @@ uncommitted: two agents, one worktree.
 
 _Filled in as each plan lands._
 
+- **2026-09-19 — Signal check, Tasks 1–8. Plan 2 complete.** Verified here: 173 / 0 / 0, tree clean,
+  eight commits each with both trailers, `vendor/` and `docs/` untouched. The agent made **one
+  deviation and it was correct**: the plan's Task 7 adds `Escape` to the smoke harness's `KEYS` table
+  but the existing `press()` helper sent `text: key` on every keydown, and Chrome silently drops a
+  named key's keydown when it carries text. It fixed `press()` at the root rather than weakening the
+  check, and proved the mechanism with a CDP probe. It reported four plan defects; the one that
+  matters is **(a) `canConnect` is dead wiring** — `diagnose` accepts it and the `refused` verdict is
+  tested, but no caller passes it, so `OTRA VENTANA TIENE EL MANDO` can never appear. It is also
+  unreachable by construction in this plan's scope, because a second operator window bails at
+  `claimOperator()` before the check is built. **Plan 4 (SETUP) must supply `canConnect` from the
+  lock state, or write its own call site.** Also flagged: a latent `open()`/`close()` race in
+  SIGNAL CHECK that leaks a 200 ms interval and a `devicechange` listener if Esc lands inside the
+  permission round-trip (real operator can hit it; the smoke test cannot). Separately, the
+  orchestrator found the smoke flake recorded under **Blocker** above.
 - **2026-09-19 — Engine, Tasks 11–18. Plan 1 complete.** One `executing-plans` agent ran all eight
   inline and committed one per task, `872137b`..`8af86af`. The orchestrator re-ran the checks rather
   than trusting the report: 139 pass / 0 fail / 0 skipped, `npm run smoke` 23/23 exit 0, tree clean,
