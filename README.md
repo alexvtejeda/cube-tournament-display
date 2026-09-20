@@ -7,9 +7,10 @@ separate operator console on the laptop.
 Built because a commercial tournament display costs around $100 and does rather more than a small
 event needs.
 
-> **Status:** the engine runs, and the audience window shows the designed ATTRACT, STANDBY, ARMED,
-> RUNNING and PENDING screens over the live maze, moving what they share from one screen to the
-> next. The operator window still uses a plain-text debug view until its screen is designed.
+> **Status:** the engine runs, and the audience window is complete — ATTRACT, STANDBY, ARMED,
+> RUNNING, PENDING, RESULTS and NO SIGNAL, over the live maze, moving what they share from one
+> screen to the next. The operator window opens on its own SETUP screen and has SIGNAL CHECK, but
+> still uses a plain-text debug view for the event itself until that screen is designed.
 > See [`docs/superpowers/specs/`](docs/superpowers/specs/) for the designs.
 
 ---
@@ -20,6 +21,10 @@ event needs.
 - Runs a fixed competition format: **N teams × 3 attempts, best of 3**, with a configurable cutoff
 - Generates WCA-legal random-state 3x3x3 scrambles and a cube preview per attempt
 - Shows a clean audience view on a projector and keeps the controls on a second window
+- Closes the event on one key, `F`: the room goes through the attract screen and lands on a board
+  with all thirteen universities in their finishing places
+- Takes the projector over when the mat stops answering, saying the time is frozen, not lost — over
+  a live attempt only, never over a result the operator is deciding
 - Diagnoses the mat before the event, and mid-event, on the operator's screen alone: it either
   shows packets arriving or names the link that is broken, and ticks off a six-item test of the mat
 - Survives a browser crash mid-event — every accepted result is written to disk as it happens
@@ -62,6 +67,11 @@ without a mat, add `?driver=mock` to the operator URL. The mock keeps its own sa
 The operator window opens on **SETUP**: connect the mat, prove it with the six-item test, then
 resume the saved event or start a new one. Starting a new one over real recorded results asks for
 the attempt count to be typed; a rehearsal (`?driver=mock`) does not.
+
+During the event, `N` calls the next university, `Space` starts inspection and accepts a time, `2`,
+`D` and `R` are the other verdicts, `U` takes the last one back, `S` opens the mat check — and **`F`
+ends the event** and puts the closing board up. `F` does not lock anything: `N` still calls a
+latecomer afterwards, and the board comes back with the next `F`.
 
 `config/event.json` is generated from the CTF database with `npm run gen-event`. Participant names go
 in `config/participants.local.json`, as `{ "uce": "José Martínez" }`. Git ignores that file.
