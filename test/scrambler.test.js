@@ -34,3 +34,8 @@ test('image() draws the preview for a given scramble', async () => {
   assert.equal(scramble, "R U R'");
   assert.match(svg, /^<svg /);
 });
+
+test('the preview has a viewBox the size of its drawing, so CSS can scale it', async () => {
+  const { svg } = await scrambler.image("R U R'");
+  assert.match(svg, /^<svg viewBox="0 0 396 296" width="396" height="296" /);
+});

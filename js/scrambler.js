@@ -18,9 +18,11 @@ export function createScrambler(worker) {
     });
   }
 
-  // The preview of a given scramble: { scramble, svg }.
+  // The preview of a given scramble: { scramble, svg }. csTimer's SVG has a size but no viewBox, so
+  // CSS could not scale it; one the size of the drawing is added.
   async function image(scramble) {
-    return { scramble, svg: await call('image', [scramble, '333']) };
+    const svg = await call('image', [scramble, '333']);
+    return { scramble, svg: svg.replace(/^<svg width="(\d+)" height="(\d+)"/, '<svg viewBox="0 0 $1 $2" width="$1" height="$2"') };
   }
 
   return {
