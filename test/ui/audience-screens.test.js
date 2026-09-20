@@ -4,8 +4,8 @@ import { createState, reduce } from '../../js/core/run-state.js';
 import { buildSnapshot } from '../../js/core/snapshot.js';
 import { packet } from '../../js/drivers/scenarios.js';
 import {
-  FRAME_HTML, attractHtml, changeBetween, countHtml, escapeHtml, mazeFrozen, sceneOf, scrambleHtml, screenFor,
-  soloWhoHtml, standbyHtml,
+  FRAME_HTML, attractFooter, attractHtml, changeBetween, countHtml, escapeHtml, familyOf, mazeFrozen, sceneOf,
+  scrambleHtml, screenFor, soloWhoHtml, standbyHtml,
 } from '../../js/ui/audience-screens.js';
 import { attempt, dnf, makeConfig } from '../helpers/fixtures.js';
 import { apply, cmd, mat } from '../helpers/actions.js';
@@ -76,7 +76,9 @@ test('ATTRACT shows one plate per university, in roster order, none of them name
   const ids = [...html.matchAll(/universidades\/(\w+)\.png/g)].map((m) => m[1]);
   assert.deepEqual(ids, ['alfa', 'beta', 'gamma', 'delta']);
   assert.match(html, /rootkitty-face-attract\.svg/);
-  assert.deepEqual(names(html), ['logo', 'attract-plates', 'attract-footer']);
+  // The face and the tagline are named so they can fade on their own on the way to RESULTS (§8.2);
+  // no plate is, so the grid moves as one until audience.js names one just before ATTRACT leaves.
+  assert.deepEqual(names(html), ['attract-face', 'logo', 'attract-tag', 'attract-plates', 'attract-footer']);
 });
 
 test('the frame names the logo and the band', () => {
@@ -176,4 +178,63 @@ test('during a verdict the who line shows the attempt just decided, even after t
 
 test('escapeHtml escapes the five special characters', () => {
   assert.equal(escapeHtml(`<a href="x">'&'</a>`), '&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;');
+});
+
+// --- RESULTS and NO SIGNAL (UI spec §8.2, §10.1) ---
+
+// Only the fields these rules read. A real snapshot has many more.
+const view = (extra = {}) => ({
+  phase: 'ARMED', result: null, verdict: null, resultsIntro: false, matSilent: false, ...extra,
+});
+
+test('RESULTS shows the bridge first and the board after', () => {
+  assert.equal(screenFor(view({ phase: 'RESULTS', resultsIntro: true })), 'attract');
+  assert.equal(screenFor(view({ phase: 'RESULTS', resultsIntro: false })), 'results');
+});
+
+test('a silent mat takes over ARMED and RUNNING', () => {
+  assert.equal(screenFor(view({ phase: 'ARMED', matSilent: true })), 'nosignal');
+  assert.equal(screenFor(view({ phase: 'RUNNING', matSilent: true })), 'nosignal');
+});
+
+test('a silent mat changes nothing anywhere else', () => {
+  assert.equal(screenFor(view({ phase: 'PENDING', matSilent: true })), 'pending');
+  assert.equal(screenFor(view({ phase: 'STANDBY', matSilent: true })), 'attract');
+  assert.equal(screenFor(view({ phase: 'STANDBY', matSilent: true, result: { teamId: 'intec' } })), 'resultado');
+  assert.equal(screenFor(view({ phase: 'SCRAMBLE', matSilent: true })), 'mezcla');
+  assert.equal(screenFor(view({ phase: 'RESULTS', matSilent: true })), 'results');
+});
+
+test('a verdict outlasts a silent mat, so PENDING is never covered', () => {
+  const verdict = { kind: 'OK', teamId: 'intec', attempt: 2, ms: 84020, reason: null };
+  assert.equal(screenFor(view({ phase: 'SCRAMBLE', matSilent: true, verdict })), 'pending');
+});
+
+test('the two new families', () => {
+  assert.equal(familyOf('results'), 'results');
+  assert.equal(familyOf('nosignal'), 'signal');
+});
+
+test('a change runs into and out of NO SIGNAL, but never inside it', () => {
+  const solo = { screen: 'running', featured: 'intec', rows: null };
+  const gone = { screen: 'nosignal', featured: 'intec', rows: null };
+  assert.equal(changeBetween(solo, gone), 'screen');
+  assert.equal(changeBetween(gone, solo), 'screen');
+  assert.equal(changeBetween(gone, { ...gone }), null);
+});
+
+test('a change runs from the bridge to the board', () => {
+  assert.equal(changeBetween({ screen: 'attract', featured: null, rows: null }, { screen: 'results', featured: null, rows: null }), 'screen');
+});
+
+test("ATTRACT's footer names what the room is waiting for", () => {
+  assert.equal(attractFooter({ phase: 'STANDBY' }), 'Comenzamos en breve');
+  assert.equal(attractFooter({ phase: 'RESULTS' }), 'Resultados finales');
+});
+
+test('ATTRACT names its face and tagline, for the bridge out', () => {
+  const html = attractHtml([{ id: 'intec', university: 'INTEC', participant: null }]);
+  assert.ok(html.includes('view-transition-name:attract-face'));
+  assert.ok(html.includes('view-transition-name:attract-tag'));
+  assert.ok(html.includes('data-slot="footer"'), 'the footer is a slot, so its words change in place');
 });

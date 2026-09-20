@@ -4,18 +4,28 @@
 // js/ui/clock-display.js decides what the solo clock says.
 import { formatMs } from '../core/format.js';
 
-// Which screen a snapshot shows (UI spec §4.1, §7.6). PENDING's layout stays up for its verdict,
-// after the phase has already moved on to SCRAMBLE or STANDBY.
-export function screenFor({ phase, result, verdict }) {
+// Which screen a snapshot shows (UI spec §4.1, §7.6, §8.2, §10.1). PENDING's layout stays up for its
+// verdict, after the phase has already moved on to SCRAMBLE or STANDBY.
+export function screenFor({ phase, result, verdict, resultsIntro, matSilent }) {
+  // The verdict comes first, which is also what exempts PENDING from NO SIGNAL: the mat plays no
+  // part while the operator decides, and covering a verdict would destroy it (§10.1.1).
   if (verdict !== null || phase === 'PENDING') return 'pending';
+  // The closing board arrives through ATTRACT, which is the bridge (§8.2).
+  if (phase === 'RESULTS') return resultsIntro ? 'attract' : 'results';
   if (phase === 'STANDBY') return result === null ? 'attract' : 'resultado';
   if (phase === 'SCRAMBLE') return 'mezcla';
+  // Only here: the mat's silence is news exactly where the room is waiting on the mat (§10.1).
+  if (matSilent) return 'nosignal';
   return phase === 'ARMED' ? 'armed' : 'running';
 }
 
 // The layout families of UI spec §2.7. A screen change moves shared elements when the family
 // changes, or within standby when the screen or the featured university changes.
-const FAMILY = { attract: 'attract', resultado: 'standby', mezcla: 'standby', armed: 'solo', running: 'solo', pending: 'solo' };
+const FAMILY = {
+  attract: 'attract', resultado: 'standby', mezcla: 'standby',
+  armed: 'solo', running: 'solo', pending: 'solo',
+  results: 'results', nosignal: 'signal',
+};
 export const familyOf = (screen) => FAMILY[screen];
 
 // The standings the column draws: as they were before the last decision until they update (§2.7).
@@ -65,17 +75,24 @@ const nameLine = (team) =>
 
 // ATTRACT (§3). The plates follow the roster, the same order as the turns. None of them is named:
 // js/ui/audience.js names the called university's plate just before ATTRACT leaves (§2.7).
+// What ATTRACT is waiting for: the start of the event, or the board that ends it (§8.6). Each
+// string lives in one place, as PENDING's do (§2.6, §7.3).
+export const attractFooter = ({ phase }) => (phase === 'RESULTS' ? 'Resultados finales' : 'Comenzamos en breve');
+
+// The face and the tagline are named so they can fade on their own over --t-step on the way to
+// RESULTS, while the plates move over --t-long (§2.7, §8.2). The footer is a slot, so changing its
+// words does not rewrite the grid and re-request thirteen logos (§8.10).
 export function attractHtml(teams) {
   return `<div class="attract">
   <div class="hero">
-    <div class="eyes"><img class="face" src="assets/rootkitty-face-attract.svg" alt=""></div>
+    <div class="eyes"${vt('attract-face')}><img class="face" src="assets/rootkitty-face-attract.svg" alt=""></div>
     <div class="title">
       <img class="logo" src="assets/logo-ctf.svg" alt="CTF Interuniversitario 2026"${vt('logo')}>
-      <div class="tag">RETO DEL CUBO</div>
+      <div class="tag"${vt('attract-tag')}>RETO DEL CUBO</div>
     </div>
   </div>
   <div class="unis"${vt('attract-plates')}>${teams.map((team) => plate(team, false)).join('')}</div>
-  <div class="soon"${vt('attract-footer')}>Comenzamos en breve</div>
+  <div class="soon" data-slot="footer"${vt('attract-footer')}></div>
 </div>`;
 }
 
