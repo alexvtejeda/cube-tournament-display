@@ -124,6 +124,25 @@ uncommitted: two agents, one worktree.
 
 ---
 
+## Parked — not part of the chain, do not lose
+
+- [ ] **A local, non-GitHub git remote on the owner's Fedora machine.** Asked for on 2026-09-19; the
+  machine was off at the time. When it is on: `mkdir -p ~/repos && git init --bare
+  ~/repos/cube-tournament-display.git` there, then `git remote add fedora
+  <user>@<tailscale-host>:repos/cube-tournament-display.git` here and `git push fedora main engine`.
+  Tailscale addresses are in the 100.64.0.0/10 range. `git bundle` is the offline fallback.
+  Why it matters: **this machine has no working microphone** (WSLg's `RDPSource` delivers zero
+  samples), so the mat can only ever be tested somewhere else.
+- [ ] **Roadmap Phase 2 row 10, hardware validation.** One session on a machine with a real
+  microphone and a real StackMat, which also retunes `THRESHOLDS` in `js/core/signal-health.js` —
+  one edit that moves both SIGNAL CHECK's chain and NO SIGNAL's takeover. Needs Node ≥ 24.2 and
+  Chrome on that machine. Record it in `ROADMAP.md` **after** the engine branch merges, because
+  engine Task 18 owns that file.
+- [ ] **Screen 10, OPERATOR PANEL** — the last undesigned screen, and the only part of Phase 1 left.
+  Requirements for it are already recorded in UI spec §4.6, §5.6, §7.7, §8.9 and operator spec §3.12.
+
+---
+
 ## Review
 
 _Filled in as each plan lands._
