@@ -27,8 +27,8 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 | Worktree | `/home/noob_master/cube-tournament-display/.worktrees/engine` |
 | Branch | `engine` — **carries all five plans**, merged back to `main` only at the very end |
 | Node | v24.11.1 (plans need ≥ 24.2) |
-| Suite | `npm test` → **pass 88, fail 0, skipped 0** |
-| Last commit | `e4f262e` Add the operator keymap |
+| Suite | `npm test` → **pass 139, fail 0, skipped 0**; `npm run smoke` → **23/23, exit 0** |
+| Last commit | `8af86af` Document running the engine and record what it built |
 | Required symlink | `.worktrees/ctf-interuniversitario` → `/home/noob_master/ctf-interuniversitario` — **present**; without it the engine's `config/event.json` test silently *skips* instead of failing |
 | `main` merged in | yes, 2026-09-19 — the branch now has the SETUP, NO SIGNAL and RESULTS specs and plans |
 
@@ -38,12 +38,9 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 
 Run in this order. Each row's dependencies are satisfied by every row above it.
 
-- [ ] **1 · Engine** — `docs/superpowers/plans/2026-09-18-tournament-engine.md`
-  - **Tasks 1–10 are DONE and approved. Resume at Task 11** (the snapshot).
-  - 8 tasks left: 11 snapshot · 12 mock driver · 13 real driver · 14 persistence/export ·
-    15 channel + one-operator lock · 16 scramble worker client · 17 the two windows + browser smoke ·
-    18 documentation.
-  - Done when: `npm test` green and `npm run smoke` ends `smoke: all checks passed`.
+- [x] **1 · Engine** — `docs/superpowers/plans/2026-09-18-tournament-engine.md` — **DONE 2026-09-19.**
+  All 18 tasks committed, one commit each. Verified by the orchestrator, not just claimed:
+  `npm test` → pass 139 / fail 0 / skipped 0, and `npm run smoke` → all 23 checks, exit 0.
 - [ ] **2 · Signal check** — `docs/superpowers/plans/2026-09-19-signal-check.md` (needs 1)
   - Creates `js/core/signal-health.js` with `THRESHOLDS`, which plans 3 and 5 both read.
   - ⚠ Its Conventions carry a bullet saying the `waiting`-state amendment was **not** run. Expect
@@ -64,6 +61,66 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
 
 **Two plans edit `ROADMAP.md`:** engine Task 18 and results Task 13. Whichever runs second must read
 the file rather than assume it. The results plan already carries that warning.
+
+---
+
+## Carry-forward from the engine dispatch (2026-09-19)
+
+Reported by the executing agent and kept here because it does not live in any plan. The ⚠ item
+will bite three of the four remaining plans.
+
+**⚠ `test/browser/smoke.js` asserts against the *debug views*.** It reads `#clock` (`'15'`,
+`'14'`/`'13'`, `'8.00'`), `#cube svg`, `#snapshot` JSON, `#status`, `#table`, `#scramble`; it needs a
+button whose `textContent` is exactly `'Connect mat'`; it matches the body text
+`'1 recorded attempts'` before pressing `r`. **Any plan that replaces a debug view must update
+`test/browser/smoke.js` in the same plan**, or `npm run smoke` goes red through no fault of the new
+code. It also hardcodes `DEBUG_PORT = 9333`, and its `Page.bringToFront` calls are load-bearing —
+Chrome throttles hidden tabs and the mock mat stops ticking without them.
+
+**For plan 2 · signal check**
+- `s` → `'signalCheck'` is already in `js/core/keymap.js` and the reducer deliberately ignores it,
+  but `js/ui/operator.js` forwards *every* non-null command into the reducer, so `s` is currently
+  swallowed. **The plan must add the interception in the operator window.**
+- The driver seam has **one** listener slot: `driver.onState(cb)` replaces the previous callback.
+  The bench rule can be built on it, but the operator window must restore its own listener on close
+  or the event goes deaf.
+- `getSample(seconds, cb)` is live on both drivers. The mock synthesises `{ raw, bin, bits, bytes }`
+  at 48 kHz (`raw` ±1, `bin` 0/1, both `round(seconds * 48000)` long); the real driver passes through
+  to the vendored decoder.
+- `fresh` is on every state; `offline(state)` sets `fresh: false`. When a mock scenario ends the mock
+  repeats its last packet at 10 Hz still `fresh: true` — correct, not a bug: an idle real mat does
+  send fresh packets, and `fresh: false` means *signal lost*.
+- `packetBytes(state)` / `packetBits(state)` are exported from `js/drivers/scenarios.js` for the byte
+  view; `mat.noise` is already in the operator debug view.
+- `createRealDriver({ decoder, permissions })` is fully injectable, and
+  `test/helpers/stackmat-signal.js` runs the unmodified decoder in a Node `vm` against a synthesized
+  1200-baud signal — reuse it instead of mocking the decoder.
+
+**For plan 3 · audience screens**
+- The snapshot contract is frozen in `js/core/snapshot.js`: `phase, teams, competitor, attemptNo,
+  attemptsPerCompetitor, startedCount, displayMs, cutoffMs, scramble, scrambleSvg, signal{on},
+  standings, result, inspectionMs, hands, verdict, standingsBefore`.
+- `VERDICT_MS = 3000` and `STANDINGS_UPDATE_MS = 4200` are exported, and the operator re-publishes at
+  exactly those two moments after a decision (the `setTimeout` pair in `operator.js`'s `dispatch`),
+  **so the audience needs no timers of its own** for the verdict ending or the standings updating.
+- The swap seam is clean: `js/ui/audience.js` is five lines around `createAudienceView(root)` with a
+  single `render(snapshot)`.
+
+**For plan 4 · SETUP**
+- The resume/fresh prompt is `chooseStart()` in `js/ui/operator.js` — plain text into `#operator`,
+  listening for R/F. The device picker and Connect button are the real-mode branch of
+  `js/ui/operator-debug-view.js`.
+- `store.archive(Date.now())` is "start fresh". Mock runs use key `${STORAGE_KEY}:mock` and are
+  provably isolated from the real key (smoke asserts both). `claimOperator()` gates everything; the
+  refusal text begins `'Another operator window is already open'`.
+
+**For plan 5 · RESULTS and NO SIGNAL**
+- Two gaps to plan around: `snapshot.signal` is only `{ on }`, and `displayMs` is `null` outside
+  RUNNING/PENDING while `hands` is forced to `'up'` whenever the signal is off — so "a time that
+  survives NO SIGNAL" will need the snapshot extended.
+- There is **no `f` key in the keymap yet** (`Escape, d, 2, r, n, ArrowLeft, ArrowRight, u, s`, plus
+  Space); adding `f` for RESULTS is that plan's work.
+- `latestResult(event, table)` and `audienceStandings(table, 8)` are ready in `js/core/scoring.js`.
 
 ---
 
@@ -147,6 +204,15 @@ uncommitted: two agents, one worktree.
 
 _Filled in as each plan lands._
 
+- **2026-09-19 — Engine, Tasks 11–18. Plan 1 complete.** One `executing-plans` agent ran all eight
+  inline and committed one per task, `872137b`..`8af86af`. The orchestrator re-ran the checks rather
+  than trusting the report: 139 pass / 0 fail / 0 skipped, `npm run smoke` 23/23 exit 0, tree clean,
+  all eight commits carry both trailers, and `vendor/stackmat.js` is byte-identical (the only vendor
+  change is the `PROVENANCE.md` line Task 18 directed). The agent reported **no defects in the plan**
+  — every count it predicted came out exactly right on first run. Its handoff notes are in
+  *Carry-forward* above. One process note: this agent was dispatched before a `/clear` and kept
+  working afterwards; the resumed session found Tasks 11–15 already committed and correctly waited
+  for it to finish instead of dispatching a second agent onto the same worktree.
 - **2026-09-19 — Engine, Tasks 1–10.** Committed and green at 88 tests, 0 skipped. Tasks 1–9 ran
   under `subagent-driven-development` with two reviewers each and passed byte-identical
   transcription checks. Task 10's implementer wrote both files verbatim and was killed before it
