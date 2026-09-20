@@ -6,8 +6,9 @@
 import { createEvent, findTeam, isComplete, nextAttemptNo, recordAttempt, undoLast } from './event-model.js';
 import { suggestedPenalty } from './inspection.js';
 
-// Where the operator may move around the roster. RUNNING is live and PENDING is a gate.
-const IDLE_PHASES = ['STANDBY', 'SCRAMBLE', 'ARMED'];
+// Where the operator may move around the roster. RUNNING is live and PENDING is a gate. RESULTS is
+// here so a latecomer can still be called after the board is up (UI spec §8.7).
+const IDLE_PHASES = ['STANDBY', 'SCRAMBLE', 'ARMED', 'RESULTS'];
 
 export function createState(config, attempts = []) {
   const last = attempts.at(-1);
@@ -30,6 +31,9 @@ export function createState(config, attempts = []) {
     // The operator's last decision, shown to the room as a verdict (UI spec §7.5). Only the attempt
     // log is persisted, so a reload drops it.
     lastDecision: null,
+    // When F ended the event, for the audience's bridge through ATTRACT (UI spec §8.7). Like
+    // lastDecision it is not persisted, so a reload lands back on Resultado.
+    resultsAt: null,
   };
 }
 
@@ -79,9 +83,17 @@ function onCommand(state, command, at) {
   switch (command) {
     case 'next':
       // From STANDBY, N may continue the university at teamIndex if it has attempts left (the start
-      // of the event, or a resume). Anywhere else it moves on.
+      // of the event, or a resume). From RESULTS it behaves the same way, for a latecomer (UI spec
+      // §8.7). Anywhere else it moves on.
       return IDLE_PHASES.includes(phase)
-        ? selectTeam(state, findTeam(state.event, state.teamIndex + (phase === 'STANDBY' ? 0 : 1), 1))
+        ? selectTeam(state, findTeam(state.event, state.teamIndex + (phase === 'STANDBY' || phase === 'RESULTS' ? 0 : 1), 1))
+        : state;
+    case 'results':
+      // F ends the event from any settled screen. The attempt in progress is dropped, exactly as
+      // when a university completes, so the bridge starts from a screen that is not mid-attempt.
+      // teamIndex is kept, so N can still call a latecomer afterwards (UI spec §8.7).
+      return phase === 'STANDBY' || phase === 'SCRAMBLE'
+        ? { ...state, ...cleared(), phase: 'RESULTS', resultsAt: at, attemptNo: null, scramble: null, scrambleSvg: null }
         : state;
     case 'nextTeam':
       return IDLE_PHASES.includes(phase) ? selectTeam(state, findTeam(state.event, state.teamIndex + 1, 1)) : state;
@@ -117,7 +129,7 @@ function onCommand(state, command, at) {
 
 const freshScramble = (state) => ({ scramble: null, scrambleSvg: null, scrambleSeq: state.scrambleSeq + 1 });
 // Nothing carries over from one attempt to the next, not even the verdict on screen.
-const cleared = () => ({ inspectionStartedAt: null, inspectionMs: null, pendingMs: null, lastDecision: null });
+const cleared = () => ({ inspectionStartedAt: null, inspectionMs: null, pendingMs: null, lastDecision: null, resultsAt: null });
 
 function selectTeam(state, index) {
   if (index === -1) return state;
@@ -179,6 +191,7 @@ function undo(state) {
     inspectionMs: attempt.inspectionMs,
     inspectionStartedAt: null,
     lastDecision: null,
+    resultsAt: null,
     // The same scramble, under a new seq so the operator window redraws its preview.
     scramble: attempt.scramble,
     scrambleSvg: null,

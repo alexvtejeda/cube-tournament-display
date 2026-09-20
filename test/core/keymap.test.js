@@ -17,3 +17,8 @@ test('the system design keys map to their commands, in either case', () => {
 test('other keys map to nothing', () => {
   for (const key of ['x', 'Enter', 'Tab', 'F5', 'Shift']) assert.equal(commandForKey(key, 'ARMED'), null, key);
 });
+
+test('f and F end the event', () => {
+  assert.equal(commandForKey('f', 'STANDBY'), 'results');
+  assert.equal(commandForKey('F', 'STANDBY'), 'results');
+});

@@ -123,3 +123,78 @@ test('a resumed event continues with the university of the last recorded attempt
   assert.equal(next.teamIndex, 1);
   assert.equal(next.attemptNo, 2);
 });
+
+// --- RESULTS (UI spec §8.7) ---
+
+function resultsConfig() {
+  return {
+    teams: [
+      { id: 'intec', university: 'INTEC', participant: 'José Martínez' },
+      { id: 'itla', university: 'ITLA', participant: 'Ana Pérez' },
+      { id: 'pucmm', university: 'PUCMM', participant: null },
+    ],
+    attemptsPerCompetitor: 3,
+    cutoffMs: 300000,
+  };
+}
+
+const command = (state, name, at = 1000) => reduce(state, { type: 'command', command: name, at });
+
+test('results ends the event from STANDBY and stamps resultsAt', () => {
+  const state = command(createState(resultsConfig()), 'results', 7000);
+  assert.equal(state.phase, 'RESULTS');
+  assert.equal(state.resultsAt, 7000);
+});
+
+test('results drops the attempt in progress but keeps the roster position', () => {
+  const scrambling = command(createState(resultsConfig()), 'next');
+  assert.equal(scrambling.phase, 'SCRAMBLE');
+  const state = command(scrambling, 'results', 7000);
+  assert.equal(state.phase, 'RESULTS');
+  assert.equal(state.attemptNo, null);
+  assert.equal(state.scramble, null);
+  assert.equal(state.scrambleSvg, null);
+  assert.equal(state.teamIndex, scrambling.teamIndex);
+});
+
+test('results is ignored outside STANDBY and SCRAMBLE', () => {
+  const armed = { ...createState(resultsConfig()), phase: 'ARMED' };
+  for (const phase of ['ARMED', 'RUNNING', 'PENDING', 'RESULTS']) {
+    const state = command({ ...armed, phase }, 'results', 7000);
+    assert.equal(state.phase, phase, `${phase} must ignore results`);
+  }
+});
+
+test('results clears the verdict, so F during one ends it at once', () => {
+  const state = command({ ...createState(resultsConfig()), lastDecision: { kind: 'OK', at: 10 } }, 'results', 7000);
+  assert.equal(state.lastDecision, null);
+});
+
+test('N from RESULTS calls the university at teamIndex, as from STANDBY', () => {
+  const results = command(createState(resultsConfig()), 'results', 7000);
+  const state = command(results, 'next');
+  assert.equal(state.phase, 'SCRAMBLE');
+  assert.equal(state.teamIndex, 0);
+  assert.equal(state.resultsAt, null);
+});
+
+test('undo from RESULTS reopens the last attempt and clears resultsAt', () => {
+  const attempts = [
+    { teamId: 'intec', attempt: 1, ms: 84020, penalty: null, status: 'OK', scramble: 'R U', inspectionMs: null, at: 5 },
+  ];
+  const results = command(createState(resultsConfig(), attempts), 'results', 7000);
+  const state = command(results, 'undo');
+  assert.equal(state.phase, 'PENDING');
+  assert.equal(state.pendingMs, 84020);
+  assert.equal(state.resultsAt, null);
+});
+
+test('RESULTS ignores the mat and every decision key', () => {
+  const results = command(createState(resultsConfig()), 'results', 7000);
+  for (const name of ['accept', 'plus2', 'dnf', 'redo', 'startInspection', 'cancelInspection']) {
+    assert.equal(command(results, name).phase, 'RESULTS', `${name} must not move RESULTS`);
+  }
+  const mat = reduce(results, { type: 'mat', state: { on: true, running: false, time_milli: 0, signalHeader: 'I' }, at: 8000 });
+  assert.equal(mat.phase, 'RESULTS');
+  assert.equal(mat.resultsAt, 7000);
+});

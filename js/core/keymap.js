@@ -9,6 +9,9 @@ const KEYS = {
   ArrowLeft: 'prevTeam',
   ArrowRight: 'nextTeam',
   u: 'undo',
+  // Ends the event and puts the closing board up (UI spec §8.1). A key of its own, because N can
+  // never end an event with an absent university in it.
+  f: 'results',
   // Not a reducer command: the operator window opens and closes SIGNAL CHECK itself, and decides
   // which phases allow it (operator spec §3.1). The reducer ignores it.
   s: 'signalCheck',
