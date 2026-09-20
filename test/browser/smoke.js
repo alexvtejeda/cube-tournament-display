@@ -129,6 +129,21 @@ await operator.press('d');
 await sleep(300);
 check('D records a DNF', (await text(operator, 'table')).includes('DNF'));
 
+// F ends the event (UI spec §8.2). The key has to get past the window's screen machine to the
+// reducer, which it only does while the event owns the window, so the smoke is where it is proved.
+await operator.press('f');
+await sleep(400);
+check('F ends the event', (await phase(operator)) === 'RESULTS');
+check('the room is bridged through ATTRACT, with the closing footer', (await screen(audience)) === 'attract'
+  && (await audience.evaluate("document.querySelector('.attract .soon')?.textContent")) === 'Resultados finales');
+await waitFor(async () => (await screen(audience)) === 'results', { timeout: 6000, what: 'the closing board to arrive' });
+check('and lands on the closing board, with every university on it',
+  (await audience.evaluate("document.querySelectorAll('#screen .plate').length")) === 13);
+await operator.press('n');
+await sleep(600);
+check('N after the board calls a latecomer, and the board comes down',
+  (await phase(operator)) === 'SCRAMBLE' && (await screen(audience)) === 'mezcla');
+
 const mockLog = await operator.evaluate("localStorage.getItem('cube-tournament-display:attempts:v1:mock')");
 check('the attempt is saved under the mock key', JSON.parse(mockLog).attempts.length === 1);
 check('the real event key is untouched', (await operator.evaluate("localStorage.getItem('cube-tournament-display:attempts:v1')")) === null);
