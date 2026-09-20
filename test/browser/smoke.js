@@ -56,7 +56,10 @@ async function openTab(url) {
     socket.send(JSON.stringify({ id: lastId, method, params }));
   });
   await send('Runtime.enable');
-  const KEYS = { ' ': ['Space', 32], n: ['KeyN', 78], d: ['KeyD', 68], u: ['KeyU', 85], r: ['KeyR', 82] };
+  const KEYS = {
+    ' ': ['Space', 32], n: ['KeyN', 78], d: ['KeyD', 68], u: ['KeyU', 85], r: ['KeyR', 82],
+    s: ['KeyS', 83], Escape: ['Escape', 27],
+  };
   return {
     send,
     errors,
@@ -66,7 +69,10 @@ async function openTab(url) {
       (await send('Runtime.evaluate', { expression, returnByValue: true })).result?.result?.value,
     async press(key) {
       const [code, keyCode] = KEYS[key];
-      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, text: key, windowsVirtualKeyCode: keyCode });
+      // `text` is the character the key types, so only a printable key has one. Sending "Escape"
+      // as text makes Chrome drop the keydown entirely, and the page never hears the key.
+      const text = key.length === 1 ? { text: key } : {};
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, ...text, windowsVirtualKeyCode: keyCode });
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: keyCode });
     },
   };
@@ -157,6 +163,43 @@ check('a reload asks: resume or start fresh', (await operator.evaluate('document
 await operator.press('r');
 await sleep(800);
 check('R resumes with the recorded attempt', (await text(operator, 'table')).includes('DNF'));
+
+// ── SIGNAL CHECK (operator spec §3.1) ────────────────────────────────────────────────────────
+const hidden = () => operator.evaluate("document.getElementById('signal-check').hidden");
+await operator.press('n');
+await sleep(2000);
+check('a university is up again', (await phase(operator)) === 'SCRAMBLE');
+const scrambleBefore = await text(operator, 'scramble');
+const audienceBefore = (await snapshot(audience)).phase;
+
+await operator.press('s');
+await sleep(700);
+check('S opens the check', (await hidden()) === false);
+check('the check names the mat it is listening to', (await text(operator, 'sc-chain')).includes('Mock mat'));
+
+await play(operator, 'cleanSolve');
+await sleep(4000);
+check('a whole solve at the mat reaches neither the event nor the room',
+  (await phase(operator)) === 'SCRAMBLE' && (await snapshot(audience)).phase === audienceBefore);
+check('but the check hears it', (await text(operator, 'sc-clock')) !== '—');
+check('and its test ticks', !(await text(operator, 'sc-chain')).includes('0 de 6'));
+
+await operator.press('s');
+await sleep(500);
+check('S returns to the event where it left it', (await hidden()) === true && (await phase(operator)) === 'SCRAMBLE');
+check('with the same scramble', (await text(operator, 'scramble')) === scrambleBefore);
+
+await play(operator, 'reset');
+await sleep(500);
+check('the mat arms again once the check is closed', (await phase(operator)) === 'ARMED');
+
+await operator.press('s');
+await sleep(600);
+check('opening the check from ARMED steps back to Mezcla, keeping the scramble',
+  (await phase(operator)) === 'SCRAMBLE' && (await text(operator, 'scramble')) === scrambleBefore);
+await operator.press('Escape');
+await sleep(400);
+check('Esc closes it too', (await hidden()) === true);
 
 check('no uncaught errors in either window', operator.errors.length + audience.errors.length === 0,
   [...operator.errors, ...audience.errors].join(' | '));
