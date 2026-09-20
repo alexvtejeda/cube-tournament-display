@@ -63,7 +63,7 @@ export async function startHarness(debugPort) {
 
 const KEYS = {
   ' ': ['Space', 32], n: ['KeyN', 78], d: ['KeyD', 68], u: ['KeyU', 85], r: ['KeyR', 82],
-  s: ['KeyS', 83], Escape: ['Escape', 27],
+  s: ['KeyS', 83], Escape: ['Escape', 27], Enter: ['Enter', 13],
 };
 
 async function openTab(debugPort, url) {

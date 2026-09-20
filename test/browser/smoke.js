@@ -28,6 +28,16 @@ const real = await openTab(`${base}/`);
 const offersConnect = "[...document.querySelectorAll('button')].some((b) => b.textContent === 'Connect mat')";
 await waitFor(() => real.evaluate(offersConnect), { what: 'real mode to offer "Connect mat"' });
 check('real mode loads and offers "Connect mat"', await real.evaluate(offersConnect));
+
+// SETUP is where the window opens, with nothing connected (operator spec §4.1, §4.4). Real mode is
+// the only place the smoke can show that state: the mock mat is connected the moment Enter is.
+await waitFor(async () => (await text(real, 'su-line')).length > 0, { what: 'SETUP to draw its verdict' });
+const realVerdict = await text(real, 'su-line');
+check('real mode opens on SETUP', (await real.evaluate("document.getElementById('setup').hidden")) === false);
+check('SETUP offers Conectar while nothing is connected',
+  (await real.evaluate("document.getElementById('su-connect').hidden")) === false);
+check('CRONÓMETRO SIN CONECTAR, and neither mark: nothing has been judged (spec §4.4)',
+  realVerdict.includes('CRONÓMETRO SIN CONECTAR') && !/[✓✕]/.test(realVerdict), realVerdict);
 check('real mode has no uncaught errors', real.errors.length === 0, real.errors.join(' | '));
 await real.closeTab();
 await sleep(500); // closing the tab releases its operator lock
@@ -35,11 +45,41 @@ await sleep(500); // closing the tab releases its operator lock
 // A hidden tab's timers are throttled, which would stall the mock mat, so the operator stays in
 // front. The audience only reacts to messages and works from behind.
 const operator = await openTab(`${base}/?driver=mock`);
-await waitFor(async () => (await phase(operator)) !== undefined, { what: 'the operator window to report a phase' });
+await waitFor(async () => (await text(operator, 'su-line')).length > 0, { what: 'the operator window to open on SETUP' });
 const audience = await openTab(`${base}/audience.html`);
 await operator.send('Page.bringToFront');
 await sleep(800);
 
+// ── SETUP (operator spec §4.16) ──────────────────────────────────────────────────────────────
+const setupHidden = () => operator.evaluate("document.getElementById('setup').hidden");
+const freshDisabled = () => operator.evaluate("document.getElementById('su-fresh').disabled");
+const connectHidden = () => operator.evaluate("document.getElementById('su-connect').hidden");
+
+check('SETUP is the first screen, and the event window is not built onto it',
+  (await setupHidden()) === false && (await operator.evaluate("document.getElementById('operator').hidden")) === true);
+check('a new event is gated before the mat is proved', (await freshDisabled()) === true);
+check('and SETUP says why', (await text(operator, 'su-why')).length > 0, await text(operator, 'su-why'));
+await waitFor(async () => (await screen(audience)) !== undefined, { timeout: 15000, what: 'the audience window to draw' });
+check('nothing reaches the room until an action is taken (spec §4.12)', (await screen(audience)) === 'waiting');
+
+await operator.press('Enter'); // the only action on the screen at this point (spec §4.10)
+await waitFor(async () => (await connectHidden()) === true, { what: 'Enter to connect the mat' });
+check('Enter connects, and the chain names the mat',
+  (await text(operator, 'su-chain')).includes('Mock mat'));
+
+// The six of §3.4 in one scenario: hands, green, a start, a reset mid-solve, then a stop. It ends
+// stopped at a non-zero time, so the event that follows does not open on a mat asking to be armed.
+await play(operator, 'resetMidSolve');
+await waitFor(async () => (await freshDisabled()) === false,
+  { timeout: 20000, what: 'six of six on a live signal to open the gate' });
+check('the gate opens at six of six on a live signal', (await freshDisabled()) === false);
+check('and the reason under the button goes with it', (await text(operator, 'su-why')) === '');
+
+await operator.evaluate("document.getElementById('su-fresh').click()");
+await waitFor(setupHidden, { what: 'SETUP to hand the window over' });
+check('Empezar evento nuevo leaves SETUP, and it does not come back', (await setupHidden()) === true);
+
+await waitFor(async () => (await phase(operator)) !== undefined, { what: 'the operator window to report a phase' });
 check('operator starts in STANDBY', (await phase(operator)) === 'STANDBY');
 check('an audience window opened late catches up: ATTRACT', (await firstScreen(audience)) === 'attract');
 
@@ -100,12 +140,20 @@ second.close();
 
 await operator.send('Page.bringToFront');
 await operator.send('Page.reload');
-const resumePrompt = async () => String((await operator.evaluate('document.body.innerText')) ?? '').includes('1 recorded attempts');
-await waitFor(resumePrompt, { what: 'the reloaded operator window to ask: resume or start fresh' });
-check('a reload asks: resume or start fresh', await resumePrompt());
-await operator.press('r');
-await sleep(800);
-check('R resumes with the recorded attempt', (await text(operator, 'table')).includes('DNF'));
+await waitFor(async () => (await text(operator, 'su-event')).includes('intentos registrados'),
+  { what: 'the reloaded operator window to open on SETUP with the saved event' });
+const savedBlock = await text(operator, 'su-event');
+check('a reload opens on SETUP, over the saved rehearsal', savedBlock.includes('Ensayo · 1 intentos registrados'), savedBlock);
+check('and offers Reanudar, which nothing else is asked of (spec §4.2)',
+  (await operator.evaluate("document.getElementById('su-resume').hidden")) === false
+  && (await operator.evaluate("document.getElementById('su-resume').disabled")) === false
+  && (await freshDisabled()) === true);
+
+await operator.press('Enter'); // the mat has to be connected again after a reload
+await waitFor(async () => (await connectHidden()) === true, { what: 'the mat to reconnect' });
+await operator.evaluate("document.getElementById('su-resume').click()");
+await waitFor(setupHidden, { what: 'Reanudar to hand the window over' });
+check('Reanudar resumes with the recorded attempt', (await text(operator, 'table')).includes('DNF'));
 
 // ── SIGNAL CHECK (operator spec §3.1) ────────────────────────────────────────────────────────
 const hidden = () => operator.evaluate("document.getElementById('signal-check').hidden");
@@ -147,6 +195,24 @@ check('Esc closes it too', (await hidden()) === true);
 check('no uncaught errors in either window', operator.errors.length + audience.errors.length === 0,
   [...operator.errors, ...audience.errors].join(' | '));
 
-operator.close();
+// S from SETUP borrows the window and Esc gives it straight back: there is no event to return to
+// (operator spec §4.14). Checked last, on a window of its own, so the event above is left alone.
+await operator.closeTab();
 audience.close();
+await sleep(500); // closing the tab releases its operator lock
+
+const third = await openTab(`${base}/?driver=mock`);
+const thirdHidden = (id) => third.evaluate(`document.getElementById('${id}').hidden`);
+await waitFor(async () => (await text(third, 'su-line')).length > 0, { what: 'a third window to open on SETUP' });
+await third.send('Page.bringToFront');
+await third.press('s');
+await waitFor(async () => (await thirdHidden('signal-check')) === false, { what: 'S to open the check from SETUP' });
+check('S from SETUP opens the check', (await thirdHidden('setup')) === true);
+await third.press('Escape');
+await waitFor(async () => (await thirdHidden('setup')) === false, { what: 'Esc to give the window back to SETUP' });
+check('and Esc returns to SETUP, not to an event',
+  (await thirdHidden('signal-check')) === true && (await thirdHidden('operator')) === true);
+check('the third window has no uncaught errors', third.errors.length === 0, third.errors.join(' | '));
+third.close();
+
 await finish('smoke');

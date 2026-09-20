@@ -47,9 +47,11 @@ function run(config) {
   const publisher = createPublisher();
   const scrambler = createScrambler(new Worker('node_modules/cstimer_module/cstimer_module.js'));
   const driver = mock ? createMockDriver() : createRealDriver();
-  // One connection, shared by the debug view's button and the check's picker: the driver itself
-  // does not track whether it started, and the check has to say so (operator spec §3.2).
-  let connected = mock;
+  // One connection, shared by SETUP's picker, the debug view's button and the check's: the driver
+  // is started by connect() and by nothing else, in mock mode too. A rehearsal that listened to a
+  // mat nobody connected would make Conectar — and Enter, its key — untestable (operator spec
+  // §4.10), and would report a mock mat as connected before anyone connected it.
+  let connected = false;
   let deviceId = localStorage.getItem(DEVICE_KEY) ?? '';
   let deviceLabel = mock ? 'Mock mat' : null;
   const matFacade = {
@@ -220,8 +222,6 @@ function run(config) {
       if (state !== null && (state.event.attempts.length > 0 || state.phase !== 'STANDBY')) e.preventDefault();
     });
   }
-
-  if (mock) driver.start();
 }
 
 main();
