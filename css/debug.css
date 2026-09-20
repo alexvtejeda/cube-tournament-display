@@ -1,0 +1,9 @@
+/* Debug views only. The designed screens bring their own tokens (UI spec §2.2). */
+body { margin: 0; padding: 16px; background: #02010c; color: #e8e6ff; font: 14px/1.5 ui-monospace, monospace; }
+pre { margin: 0 0 16px; white-space: pre-wrap; }
+button, select { margin: 0 6px 12px 0; font: inherit; }
+a { color: #aba6f7; }
+.error { color: #ee2737; }
+.scramble { font-size: 28px; line-height: 1.3; color: #fff; }
+.clock { margin: 0; font-size: 96px; font-weight: 800; color: #fff; }
+.cube svg { width: 240px; height: auto; }

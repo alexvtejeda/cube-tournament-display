@@ -11,6 +11,7 @@
   "scripts": {
     "start": "node serve.js",
     "test": "node --test \"test/**/*.test.js\"",
+    "smoke": "node test/browser/smoke.js",
     "gen-event": "node tools/gen-event.js"
   },
   "dependencies": {
