@@ -11,14 +11,21 @@ branch itself, then dispatches the next. It does not execute plan tasks itself.
 
 ## ⚠ READ THIS FIRST — is a dispatch already in flight?
 
-**⚠ PLAN 5 (RESULTS and NO SIGNAL) WAS DISPATCHED 2026-09-19 23:55 AND IS RUNNING NOW.** Do not
-dispatch anything onto `.worktrees/engine` until you have proven it is finished — use the check
-below. Plans 1–4 and task 4.5 are verified and committed; anything after `9304fbe` is plan 5's and
-unchecked. It carries the authorized port deviation, so expect one commit more than thirteen.
+**✅ ALL FIVE PLANS AND TASK 4.5 ARE DONE AND VERIFIED (2026-09-20 00:45). Nothing is in flight.**
+The branch is ready for `finishing-a-development-branch`.
 
-**After it:** verify → tick its row → `finishing-a-development-branch`, merging `engine` into `main`.
-Two things are still open at merge time: the two by-eye checks from plan 3, and the signal-check
-amendment that would make `OTRA VENTANA TIENE EL MANDO` reachable.
+`engine` is **62 commits ahead** of `main` and the merge is **clean**: `main` only ever changed
+`tasks/todo.md`, `engine` changed 78 files, and the two sets do not overlap. It is not a
+fast-forward — that is expected, because this tracker is maintained on `main` while the code lives
+on `engine`.
+
+**Two things are still open, and neither should merge silently:**
+1. **The two by-eye checks from plan 3** — Task 8 Step 5 and Task 9 Step 7, the mockup and motion
+   comparisons. They need the owner and a visible browser. Everything measurable is covered.
+2. **`OTRA VENTANA TIENE EL MANDO` is wired but unreachable.** A refused window returns early in
+   `main()` and `signal-check.js` never passes `canConnect` to `diagnose`. **This is the signal-check
+   plan's amendment**, recorded in ROADMAP's "Immediate next step" alongside UI spec §10.8's `Esc`
+   remedy.
 
 **Next, in order:** task **4.5 (maze full-bleed)** → **plan 5** → `finishing-a-development-branch`.
 
@@ -108,8 +115,9 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 | Worktree | `/home/noob_master/cube-tournament-display/.worktrees/engine` |
 | Branch | `engine` — **carries all five plans**, merged back to `main` only at the very end |
 | Node | v24.11.1 (plans need ≥ 24.2) |
-| Suite | `npm test` → **pass 215, fail 0, skipped 0**; `npm run smoke` → **50/50, three serial runs identical**; `npm run screens` → **127/127** |
-| Last commit | `9304fbe` Make the maze a full-window backdrop, keeping the stage 16:9 |
+| Suite | `npm test` → **pass 257, fail 0, skipped 0**; `npm run smoke` → **54/54, three serial runs identical**; `npm run screens` → **166/166** |
+| Last commit | `ab6cae4` Record RESULTS and NO SIGNAL as built |
+| Debug ports | **none hardcoded** — the harness takes `0` and reads the bound port from its own profile's `DevToolsActivePort`. Two harnesses at once measured 44999 and 45303, each on its own browser. |
 | Required symlink | `.worktrees/ctf-interuniversitario` → `/home/noob_master/ctf-interuniversitario` — **present**; without it the engine's `config/event.json` test silently *skips* instead of failing |
 | `main` merged in | yes, 2026-09-19 — the branch now has the SETUP, NO SIGNAL and RESULTS specs and plans |
 
@@ -136,8 +144,11 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
   `npm run smoke` → 50/50 exit 0 on three serial runs with identical check lists, `npm run screens`
   → 125/125, tree clean, all seven commits carry both trailers, `vendor/stackmat.js` byte-identical,
   `docs/superpowers/` untouched. **The weakest plan of the four — 15 defects, see Review.**
-- [ ] **5 · RESULTS and NO SIGNAL** — `docs/superpowers/plans/2026-09-19-results-and-no-signal.md`
-  (needs 1, 2 and 3)
+- [x] **5 · RESULTS and NO SIGNAL** — `docs/superpowers/plans/2026-09-19-results-and-no-signal.md`
+  — **DONE 2026-09-20.** All 13 tasks plus the port deviation and two fixes, `6dbdd40`..`ab6cae4`
+  (15 commits). Verified by the orchestrator: 257 / 0 / 0, smoke 54/54 on three serial runs with
+  identical check lists, screens 166/166, tree and stash clean, all 15 commits carry both trailers,
+  `vendor/` and `docs/superpowers/` untouched, `--stage-w` intact.
   - **AUTHORIZED DEVIATION, owner's call 2026-09-19: fix the hardcoded debug port.** Plan 5 extends
     the browser harness, so it is the last dispatch that can. Replace `DEBUG_PORT = 9333` with a port
     chosen at launch, and make the readiness loop prove the browser answering is *ours* rather than
@@ -524,6 +535,30 @@ uncommitted: two agents, one worktree.
 
 _Filled in as each plan lands._
 
+- **2026-09-20 — RESULTS and NO SIGNAL, Tasks 1–13. Plan 5 complete, and the chain with it.**
+  Verified here: 257 / 0 / 0, smoke 54/54 on three serial runs with identical check lists, screens
+  166/166, tree and stash clean, fifteen commits with both trailers.
+  **The port deviation is done and independently proved.** The harness now launches with
+  `--remote-debugging-port=0` and reads the bound port from the first line of *its own* profile's
+  `DevToolsActivePort`, waiting for a complete file so a partial write cannot be misread. No
+  hardcoded port remains anywhere in `test/`. Measured here: two harnesses started together took
+  **44999** and **45303**, each talking to its own browser. The class of failure that cost an hour of
+  false leads, and that let a co-browse tool kill a smoke run, is now structurally impossible.
+  **Ten plan defects, and two of them were live bugs the plan would have shipped.** Task 11 Step 6
+  asserted that `shown` is still the outgoing screen inside a `startViewTransition` callback; it is
+  not — the callback runs after `render()` returns, so the plate that should return to ATTRACT's grid
+  just faded, which is the whole of §8.2's bridge-in. Fixing it exposed a second: the returning
+  plate's name survived on ATTRACT, so the next exit pulled *two* plates out of a moving grid. In
+  production a later snapshot masked it within ~100 ms — the agent's note that "the invariant should
+  not depend on snapshot cadence" is the right instinct and the reason it fixed rather than shrugged.
+  Task 12's predicted geometry was also wrong (7.63/53.96cqw predicted, 8.68/52.82 measured) because
+  it ignored `justify-content: center`; the agent replaced the two magic numbers with the invariants
+  behind them, which is a better test than the plan asked for.
+  It also went **beyond** the plan where the plan left a hole: nothing proved the new `f` key reached
+  the reducer past SETUP's `screen` machine, because the plan only ever posts RESULTS snapshots. It
+  added `f` to the harness `KEYS` and four smoke checks that press `F` on the real operator window.
+  As warned at dispatch, every defect fell in the transcribed half; Tasks 4, 6, 7 and 8 — the
+  "run and passing" half — were accurate.
 - **2026-09-19 — Maze full-bleed. Task 4.5 complete.** The owner reported the three.js scene not
   filling the body width; it was not a regression but the consequence of the spec'd 16:9 stage, with
   the canvas inside it. Fixed by moving the canvas and vignette to a viewport-fixed backdrop and
