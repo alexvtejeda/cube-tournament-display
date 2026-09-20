@@ -11,9 +11,10 @@ branch itself, then dispatches the next. It does not execute plan tasks itself.
 
 ## ⚠ READ THIS FIRST — is a dispatch already in flight?
 
-**⚠ TASK 4.5 (MAZE FULL-BLEED) WAS DISPATCHED 2026-09-19 23:30 AND IS RUNNING NOW.** Do not
-dispatch anything onto `.worktrees/engine` until you have proven it is finished — use the check
-below. Plans 1–4 are verified and committed; anything after `615cf21` is task 4.5's and unchecked.
+**Plans 1–4 and task 4.5 are finished and verified (2026-09-19 23:50). Nothing is in flight.**
+
+**Next, in order:** **plan 5** (carrying its authorized port deviation) →
+`finishing-a-development-branch`.
 
 **Next, in order:** task **4.5 (maze full-bleed)** → **plan 5** → `finishing-a-development-branch`.
 
@@ -103,8 +104,8 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 | Worktree | `/home/noob_master/cube-tournament-display/.worktrees/engine` |
 | Branch | `engine` — **carries all five plans**, merged back to `main` only at the very end |
 | Node | v24.11.1 (plans need ≥ 24.2) |
-| Suite | `npm test` → **pass 215, fail 0, skipped 0**; `npm run smoke` → **50/50, three serial runs identical**; `npm run screens` → **125/125** |
-| Last commit | `615cf21` Document SETUP |
+| Suite | `npm test` → **pass 215, fail 0, skipped 0**; `npm run smoke` → **50/50, three serial runs identical**; `npm run screens` → **127/127** |
+| Last commit | `9304fbe` Make the maze a full-window backdrop, keeping the stage 16:9 |
 | Required symlink | `.worktrees/ctf-interuniversitario` → `/home/noob_master/ctf-interuniversitario` — **present**; without it the engine's `config/event.json` test silently *skips* instead of failing |
 | `main` merged in | yes, 2026-09-19 — the branch now has the SETUP, NO SIGNAL and RESULTS specs and plans |
 
@@ -151,8 +152,10 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
     test framework this repo has never used. Plan 5 has **eight** transcribed tasks. The dispatch
     must tell the agent to read the real file the moment a snippet does not fit, and that reporting
     a plan defect is success, not failure — that is exactly what kept plan 4 honest.
-- [ ] **4.5 · Maze full-bleed** — no plan file; the scoped task below. **Runs after plan 4, before
-  plan 5.** Owner's call 2026-09-19.
+- [x] **4.5 · Maze full-bleed** — **DONE 2026-09-19**, one commit `9304fbe`, 40 insertions.
+  Verified by the orchestrator: 215 / 0 / 0, smoke 50/50 on three serial runs with identical check
+  lists, screens **127/127** including both new guards, `css/tokens.css` untouched, vendor untouched,
+  stash stack clean. Measured at 2560×1080: **maze 2560×1080, stage 1920×1080.**
 - [ ] **6 · Finish the branch** — `finishing-a-development-branch`, merging `engine` into `main`.
 
 ### 4.5 · The maze must fill the window, while the stage stays 16:9
@@ -262,6 +265,30 @@ Chrome throttles hidden tabs and the mock mat stops ticking without them.
 - There is **no `f` key in the keymap yet** (`Escape, d, 2, r, n, ArrowLeft, ArrowRight, u, s`, plus
   Space); adding `f` for RESULTS is that plan's work.
 - `latestResult(event, table)` and `audienceStandings(table, 8)` are ready in `js/core/scoring.js`.
+
+## Carry-forward from the maze full-bleed fix (2026-09-19)
+
+`9304fbe` moved the canvas and the vignette out of `.stage` into a body-level
+`<div class="backdrop" id="backdrop">` fixed to the viewport. **Three consequences for any plan that
+touches the audience window next:**
+
+- **⚠ `.stage` no longer has a background.** It was `background: var(--bg-deep)`; `body` carries that
+  now. **Anything that paints the stage or a screen opaque hides the maze completely** — a solid
+  `background` on `.frame`, `.body` or a full-bleed screen. `.band`'s `rgba(2,1,12,.72)` and `.solo`'s
+  radial gradient are translucent and still read correctly; copy that pattern.
+- **⚠ `.shade` is no longer a descendant of `.stage`.** Any selector of the form `.stage … .shade`
+  now silently matches nothing. The screen key lives on **two** elements, `#stage` and `#backdrop`,
+  both set in `draw()` and both seeded `data-screen="waiting"` in the HTML. A screen-keyed *backdrop*
+  treatment selects `.backdrop[data-screen=…]`; a screen-keyed *stage* treatment still selects
+  `.stage[data-screen=…]`.
+- **The maze now fills both axes**, so on a window taller than 16:9 the scene shows above and below
+  the letterbox too. Intended, but it is a new visual surface the RESULTS screens sit over.
+- `--stage-w` is unchanged and is still the only way to measure the stage from a view-transition
+  pseudo-element. The band keyframes keep `translateY(calc(-.1095 * var(--stage-w)))` as written —
+  and the new guard's second half now **fails loudly if anyone widens that token.**
+- `mazeLit()` survived the move untouched, but it now samples the bottom-right quarter of the
+  *window* rather than of the stage. Identical at 1080p; it will differ if a future check runs it at
+  a non-16:9 size.
 
 ## Carry-forward from the SETUP dispatch (2026-09-19)
 
@@ -493,6 +520,16 @@ uncommitted: two agents, one worktree.
 
 _Filled in as each plan lands._
 
+- **2026-09-19 — Maze full-bleed. Task 4.5 complete.** The owner reported the three.js scene not
+  filling the body width; it was not a regression but the consequence of the spec'd 16:9 stage, with
+  the canvas inside it. Fixed by moving the canvas and vignette to a viewport-fixed backdrop and
+  dropping the stage's opaque background, leaving `--stage-w` and the 16:9 content geometry alone.
+  **The agent proved the guard was not self-satisfying**: it reverted the three source files, re-ran
+  with only the new test present, and got `FAIL … maze 1920×1080` while the 16:9 half still passed.
+  That is the right standard for a regression guard, and worth repeating — a guard nobody has seen
+  fail is a guard nobody has tested. Verified here at 2560×1080: maze 2560×1080, stage 1920×1080.
+  One process note: it used `git stash` for that revert, which is shared across worktrees here. It
+  came back clean, but a WIP commit is the safer way to set work aside on this repo.
 - **2026-09-19 — SETUP, Tasks 1–7. Plan 4 complete.** Verified here: 215 / 0 / 0, smoke 50/50 exit 0
   on three serial runs with identical check lists, screens 125/125, tree clean, seven commits with
   both trailers, `vendor/stackmat.js` byte-identical, `docs/superpowers/` untouched.
