@@ -11,10 +11,14 @@ branch itself, then dispatches the next. It does not execute plan tasks itself.
 
 ## ⚠ READ THIS FIRST — is a dispatch already in flight?
 
-**Plans 1–4 and task 4.5 are finished and verified (2026-09-19 23:50). Nothing is in flight.**
+**⚠ PLAN 5 (RESULTS and NO SIGNAL) WAS DISPATCHED 2026-09-19 23:55 AND IS RUNNING NOW.** Do not
+dispatch anything onto `.worktrees/engine` until you have proven it is finished — use the check
+below. Plans 1–4 and task 4.5 are verified and committed; anything after `9304fbe` is plan 5's and
+unchecked. It carries the authorized port deviation, so expect one commit more than thirteen.
 
-**Next, in order:** **plan 5** (carrying its authorized port deviation) →
-`finishing-a-development-branch`.
+**After it:** verify → tick its row → `finishing-a-development-branch`, merging `engine` into `main`.
+Two things are still open at merge time: the two by-eye checks from plan 3, and the signal-check
+amendment that would make `OTRA VENTANA TIENE EL MANDO` reachable.
 
 **Next, in order:** task **4.5 (maze full-bleed)** → **plan 5** → `finishing-a-development-branch`.
 
