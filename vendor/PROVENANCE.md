@@ -45,6 +45,7 @@ Once refactored, this row stops tracking upstream and the file becomes ours to m
 ## Not vendored here
 
 - **`cstimer_module`** — installed from npm (`cstimer_module@0.1.5`), not copied into the tree.
+  `serve.js` serves it to the browser from `node_modules/cstimer_module/`, so run `npm install` first.
 - **`docs/reference/cstimer-timer-stackmat.js`** — csTimer's timer-side adapter, kept as a written
   reference for the run state machine. Never loaded, never executed.
 

@@ -7,8 +7,9 @@ separate operator console on the laptop.
 Built because a commercial tournament display costs around $100 and does rather more than a small
 event needs.
 
-> **Status:** design complete, implementation not started.
-> See [`docs/superpowers/specs/`](docs/superpowers/specs/) for the system design.
+> **Status:** the engine runs: run loop, scoring, both StackMat drivers, persistence and window
+> sync, with plain-text debug views. The designed screens come next.
+> See [`docs/superpowers/specs/`](docs/superpowers/specs/) for the designs.
 
 ---
 
@@ -35,6 +36,24 @@ several minutes — or not finish at all — rather than for sub-20-second solve
 
 Because `getUserMedia` requires a secure context, the display must be served over `http://localhost`
 or HTTPS. Opening the HTML as a `file://` URL will fail silently on the microphone.
+
+## Running it
+
+You need Node 24.2 or newer, and Chrome.
+
+```sh
+npm install          # cstimer_module, the scramble generator
+npm test             # the core, the drivers and the server; no browser needed
+npm run smoke        # both windows in headless Chrome, on the mock mat
+npm start            # serves http://localhost:8080
+```
+
+Open the operator window at `http://localhost:8080/` and the audience window at
+`http://localhost:8080/audience.html`, then drag the audience window to the projector. To rehearse
+without a mat, add `?driver=mock` to the operator URL. The mock keeps its own saved results.
+
+`config/event.json` is generated from the CTF database with `npm run gen-event`. Participant names go
+in `config/participants.local.json`, as `{ "uce": "José Martínez" }`. Git ignores that file.
 
 ---
 

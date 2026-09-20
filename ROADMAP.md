@@ -103,6 +103,10 @@ independent of UI design and could begin immediately.
 | 10 | **Hardware validation** | One session on a machine with a working microphone | 9 | a real StackMat drives a complete attempt |
 | 11 | **Dry run** | Full rehearsal | all | 39 attempts with no operator hesitation |
 
+**Built by the engine plan** (`docs/superpowers/plans/2026-09-18-tournament-engine.md`): rows 0–4 and
+8, and row 5's key loop without its panel layout. Plain-text debug views stand in for screens 1–10.
+`npm test` covers the core and the drivers; `npm run smoke` covers both windows on the mock mat.
+
 ---
 
 ## Risks to clear before October
