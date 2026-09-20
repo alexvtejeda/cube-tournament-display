@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>Reto del Cubo</title>
+    <!-- The font is fetched over the network, and a pending stylesheet blocks the scripts below from
+         running, so a plain <link> makes the window's start wait on the CDN. Preload fetches it
+         without blocking; the swap applies it the moment it lands, and the window opens offline. -->
+    <link rel="preload" as="style" href="https://use.typekit.net/frw4sme.css"
+          onload="this.onload = null; this.rel = 'stylesheet';">
+    <noscript><link rel="stylesheet" href="https://use.typekit.net/frw4sme.css"></noscript>
+    <link rel="stylesheet" href="css/tokens.css">
+    <link rel="stylesheet" href="css/audience.css">
+  </head>
+  <body>
+    <!-- The maze is an ambient backdrop for the whole window, so it sits outside the 16:9 stage: the
+         stage has container-type: size, which contains even fixed descendants. The shade travels
+         with it, or the vignette would stop at the stage edge and leave a seam. -->
+    <div class="backdrop" id="backdrop" data-screen="waiting">
+      <canvas class="maze" id="maze"></canvas>
+      <div class="shade"></div>
+    </div>
+    <main class="stage" id="stage" data-screen="waiting">
+      <div class="screen" id="screen"></div>
+    </main>
+    <script type="module" src="js/ui/audience.js"></script>
+  </body>
+</html>

@@ -1,0 +1,72 @@
+{
+  "eventName": "CTF Interuniversitario 2026 — Reto del Cubo",
+  "cutoffMs": 300000,
+  "attemptsPerCompetitor": 3,
+  "teams": [
+    {
+      "id": "loyola",
+      "university": "LOYOLA",
+      "participant": ""
+    },
+    {
+      "id": "intec",
+      "university": "INTEC",
+      "participant": ""
+    },
+    {
+      "id": "itla",
+      "university": "ITLA",
+      "participant": ""
+    },
+    {
+      "id": "pucmm",
+      "university": "PUCMM",
+      "participant": ""
+    },
+    {
+      "id": "uapa",
+      "university": "UAPA",
+      "participant": ""
+    },
+    {
+      "id": "ucsd",
+      "university": "UCSD",
+      "participant": ""
+    },
+    {
+      "id": "uce",
+      "university": "UCE",
+      "participant": ""
+    },
+    {
+      "id": "unapec",
+      "university": "UNAPEC",
+      "participant": ""
+    },
+    {
+      "id": "unibe",
+      "university": "UNIBE",
+      "participant": ""
+    },
+    {
+      "id": "unicaribe",
+      "university": "UNICARIBE",
+      "participant": ""
+    },
+    {
+      "id": "unicda",
+      "university": "UNICDA",
+      "participant": ""
+    },
+    {
+      "id": "unphu",
+      "university": "UNPHU",
+      "participant": ""
+    },
+    {
+      "id": "utesa",
+      "university": "UTESA",
+      "participant": ""
+    }
+  ]
+}

@@ -7,8 +7,11 @@ separate operator console on the laptop.
 Built because a commercial tournament display costs around $100 and does rather more than a small
 event needs.
 
-> **Status:** design complete, implementation not started.
-> See [`docs/superpowers/specs/`](docs/superpowers/specs/) for the system design.
+> **Status:** the engine runs, and the audience window is complete — ATTRACT, STANDBY, ARMED,
+> RUNNING, PENDING, RESULTS and NO SIGNAL, over the live maze, moving what they share from one
+> screen to the next. The operator window opens on its own SETUP screen and has SIGNAL CHECK, but
+> still uses a plain-text debug view for the event itself until that screen is designed.
+> See [`docs/superpowers/specs/`](docs/superpowers/specs/) for the designs.
 
 ---
 
@@ -18,6 +21,12 @@ event needs.
 - Runs a fixed competition format: **N teams × 3 attempts, best of 3**, with a configurable cutoff
 - Generates WCA-legal random-state 3x3x3 scrambles and a cube preview per attempt
 - Shows a clean audience view on a projector and keeps the controls on a second window
+- Closes the event on one key, `F`: the room goes through the attract screen and lands on a board
+  with all thirteen universities in their finishing places
+- Takes the projector over when the mat stops answering, saying the time is frozen, not lost — over
+  a live attempt only, never over a result the operator is deciding
+- Diagnoses the mat before the event, and mid-event, on the operator's screen alone: it either
+  shows packets arriving or names the link that is broken, and ticks off a six-item test of the mat
 - Survives a browser crash mid-event — every accepted result is written to disk as it happens
 
 ## Why it exists
@@ -35,6 +44,37 @@ several minutes — or not finish at all — rather than for sub-20-second solve
 
 Because `getUserMedia` requires a secure context, the display must be served over `http://localhost`
 or HTTPS. Opening the HTML as a `file://` URL will fail silently on the microphone.
+
+## Running it
+
+You need Node 24.2 or newer, and Chrome.
+
+```sh
+npm install          # cstimer_module, the scramble generator
+npm test             # the core, the drivers and the server; no browser needed
+npm run smoke        # both windows in headless Chrome, on the mock mat
+npm run screens      # the designed screens at 1080p, checked and saved to test/browser/out/
+npm start            # serves http://localhost:8080
+```
+
+`npm run screens` also needs internet access, for the Adobe Fonts kit. The audience window's screen
+changes need Chrome or Edge 111 or newer; other browsers cut between screens.
+
+Open the operator window at `http://localhost:8080/` and the audience window at
+`http://localhost:8080/audience.html`, then drag the audience window to the projector. To rehearse
+without a mat, add `?driver=mock` to the operator URL. The mock keeps its own saved results.
+
+The operator window opens on **SETUP**: connect the mat, prove it with the six-item test, then
+resume the saved event or start a new one. Starting a new one over real recorded results asks for
+the attempt count to be typed; a rehearsal (`?driver=mock`) does not.
+
+During the event, `N` calls the next university, `Space` starts inspection and accepts a time, `2`,
+`D` and `R` are the other verdicts, `U` takes the last one back, `S` opens the mat check — and **`F`
+ends the event** and puts the closing board up. `F` does not lock anything: `N` still calls a
+latecomer afterwards, and the board comes back with the next `F`.
+
+`config/event.json` is generated from the CTF database with `npm run gen-event`. Participant names go
+in `config/participants.local.json`, as `{ "uce": "José Martínez" }`. Git ignores that file.
 
 ---
 
@@ -60,8 +100,8 @@ not ours to license in the first place.
 
 **Pentraze property, all rights reserved:**
 
-- `assets/rootkitty.svg`, `assets/rootkitty-face.svg`, `assets/rootkitty-costume.webp`,
-  `assets/rootkitty-from-above.png` — the RootKitty mascot
+- `assets/rootkitty.svg`, `assets/rootkitty-face.svg`, `assets/rootkitty-face-attract.svg`,
+  `assets/rootkitty-costume.webp`, `assets/rootkitty-from-above.png` — the RootKitty mascot
 - `assets/logo-ctf.svg` — the CTF Interuniversitario wordmark
 - `vendor/hero-maze3d.js` — the maze background, from the CTF Interuniversitario site
 

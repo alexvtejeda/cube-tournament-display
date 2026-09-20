@@ -2,7 +2,7 @@
  * hero-maze3d.js — TRUE 3D maze-FLOOR hero background (three.js / WebGL).
  *
  * The visual centerpiece of the CTF Interuniversitario hero, rebuilt on the
- * GPU. Renders into #hero-canvas a procedurally generated "perfect" maze laid
+ * GPU. Renders into a given canvas a procedurally generated "perfect" maze laid
  * flat on the XZ ground plane, viewed by a LOW, angled camera so the maze
  * recedes toward a glowing horizon (synthwave-floor framing). Small emissive
  * spheres (the competitors) genuinely PATHFIND (BFS over the maze graph)
@@ -24,23 +24,19 @@
  * Performance & accessibility guards (REQUIRED — mirror hero-maze.js):
  *   • prefers-reduced-motion: render ONE static frame (maze + balls placed +
  *     flag) — NO rAF loop.
- *   • Pause the loop when document.hidden OR #hero-canvas is off-screen (IO).
+ *   • Pause the loop when document.hidden OR the canvas is off-screen (IO).
  *   • Cap pixelRatio at 1.5 (ambient bg — plenty), debounced resize.
  *   • Static maze geometry built ONCE per regen (merged into a couple of
  *     meshes); only balls/flag/pulse update per frame.
  *   • Guards a missing canvas / missing WebGL — falls back to CSS ambiance,
  *     never throws.
  *
- * Fallbacks (swap the <script> src in index.html to revert):
- *   • hero-maze.js — the original 2D-canvas maze.
- *   • hero3d.js    — the synthwave perspective grid.
+ * Refactored for the tournament display (vendor/PROVENANCE.md): instead of
+ * starting itself on #hero-canvas at import, it exports createMaze({ canvas }),
+ * whose { pause, resume } let the audience window freeze it during a solve.
  */
 
-import * as THREE from '../vendor/three.module.js';
-
-const canvas = document.getElementById('hero-canvas');
-const hero = document.getElementById('inicio');
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+import * as THREE from './three.module.js';
 
 /* Detect WebGL availability up front; bail gracefully to CSS ambiance. */
 function webglOK() {
@@ -51,13 +47,15 @@ function webglOK() {
   } catch (e) { return false; }
 }
 
-if (canvas && webglOK()) {
-  init();
+// Draws the maze into `canvas` and returns { pause, resume }. Without a canvas or WebGL there is no
+// maze, and both do nothing.
+export function createMaze({ canvas }) {
+  if (!canvas || !webglOK()) return { pause() {}, resume() {} };
+  return init(canvas);
 }
 
-function init() {
-  /* Mark the hero so CSS can hide the static .hero__grid while the maze runs. */
-  if (hero) hero.classList.add('hero--maze');
+function init(canvas) {
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ── Brand palette ── */
   const COL = {
@@ -808,6 +806,11 @@ function init() {
       // Rebuild when the grid resizes OR when crossing the portrait/landscape
       // boundary (so the mobile-only flags get added/removed).
       if (GRID_C !== prevC || GRID_R !== prevR || portrait !== prevPortrait) buildWorld();
+      // A resize clears the canvas. While the loop is stopped, draw the held frame again.
+      if (!running) {
+        if (reducedMotion) renderStatic();
+        else renderer.render(scene, camera);
+      }
     }, 180);
   }
 
@@ -871,10 +874,11 @@ function init() {
     rafId = 0;
   }
 
-  /* Combine visibility + on-screen: render only when both true. */
+  /* Combine visibility + on-screen + not paused: render only when all hold. */
   let onScreen = true;
+  let paused = false;
   function syncLoop() {
-    if (onScreen && !document.hidden) start();
+    if (onScreen && !document.hidden && !paused) start();
     else stop();
   }
 
@@ -922,4 +926,17 @@ function init() {
     }
     syncLoop();
   }
+
+  // pause() stops the loop, and the canvas keeps showing the last frame drawn; resume() starts it
+  // again. With reduced motion there is no loop, so both leave the one static frame alone.
+  return {
+    pause() {
+      paused = true;
+      if (!reducedMotion) syncLoop();
+    },
+    resume() {
+      paused = false;
+      if (!reducedMotion) syncLoop();
+    },
+  };
 }
