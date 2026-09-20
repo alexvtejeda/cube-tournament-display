@@ -5,7 +5,11 @@ import { sleep, startHarness, waitFor } from './harness.js';
 
 const { base, openTab, check, finish } = await startHarness(9333);
 
-const text = (tab, id) => tab.evaluate(`document.getElementById('${id}')?.textContent ?? document.body.innerText`);
+// Always a string: a poll can evaluate before the document exists, where `document.body` is still
+// null and Runtime.evaluate yields nothing. Returning '' lets a predicate say "not ready yet"
+// instead of throwing.
+const text = async (tab, id) =>
+  String((await tab.evaluate(`document.getElementById('${id}')?.textContent ?? document.body?.innerText`)) ?? '');
 const phase = async (tab) => (await text(tab, 'status')).match(/phase\s+(\w+)/)?.[1];
 const play = (tab, name) => tab.evaluate(`[...document.querySelectorAll('button')].find((b) => b.textContent === '${name}').click()`);
 const screen = (tab) => tab.evaluate("document.getElementById('stage').dataset.screen");
