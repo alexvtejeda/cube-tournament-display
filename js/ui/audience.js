@@ -5,8 +5,9 @@
 import { createMaze } from '../../vendor/hero-maze3d.js';
 import { createSubscriber } from '../core/channel.js';
 import {
-  FRAME_HTML, SOLO_HTML, attractHtml, changeBetween, countHtml, familyOf, mazeFrozen, sceneOf, scrambleHtml,
-  screenFor, soloWhoHtml, standbyHtml,
+  FRAME_HTML, RESULTS_FRAME_HTML, SOLO_HTML, attractFooter, attractHtml, changeBetween, countHtml,
+  familyOf, mazeFrozen, noSignalHtml, resultsHtml, sceneOf, scrambleHtml, screenFor, signalMarkHtml,
+  soloWhoHtml, standbyHtml,
 } from './audience-screens.js';
 import { VERDICT_LANDS_MS, clockIsBest, soloDisplay } from './clock-display.js';
 
@@ -33,6 +34,7 @@ const slot = (key) => screen.querySelector(`[data-slot="${key}"]`);
 let latest = null;          // the newest snapshot
 let shown = null;           // the scene on screen, from sceneOf()
 let changePending = false;  // a view transition has captured the old screen and not yet drawn the new
+let arriving = false;       // RESULTS came from the bridge, so its times and its kitty animate (§8.5)
 
 function render(snapshot) {
   latest = snapshot;
@@ -40,14 +42,24 @@ function render(snapshot) {
   else maze.resume();
   followVerdict(snapshot);
   const scene = sceneOf(snapshot);
-  if (changeBetween(shown, scene) !== null && canAnimate()) {
-    if (shown.screen === 'attract') nameCalledPlate(scene.featured);
+  const changing = changeBetween(shown, scene) !== null && canAnimate();
+  // RESULTS animates its times and its kitty only when it arrives from the bridge by a screen
+  // change (§8.5). The flag is then held for as long as the board is up, so a later snapshot can
+  // neither restart the climb nor cut it off half-way. A window that opened after the bridge, or
+  // one under reduced motion, never sets it and shows the finished board (§8.2).
+  if (scene.screen !== 'results') arriving = false;
+  else if (changing && shown.screen === 'attract') arriving = true;
+  if (changing) {
+    if (shown.screen === 'attract') nameLeavingPlates(scene);
+    // ATTRACT's ordinary exit to Mezcla must not fire on the way to RESULTS (§8.2).
+    if (arriving) document.documentElement.classList.add('to-results');
     changePending = true;
     const change = document.startViewTransition(() => {
       changePending = false;
       draw(latest);
     });
     change.ready.catch(() => {}); // skipped, when another change arrives first
+    change.finished.finally(() => document.documentElement.classList.remove('to-results'));
   } else if (!changePending) {
     // Until the pending change draws, the old screen must stay as it was captured.
     draw(snapshot);
@@ -56,26 +68,66 @@ function render(snapshot) {
 }
 
 // ATTRACT names only the called university's plate, just before it leaves, so that plate moves into
-// Mezcla's while the other twelve go with the grid (UI spec §2.7).
-function nameCalledPlate(teamId) {
-  const plate = screen.querySelector(`.attract .plate[data-team="${teamId}"]`);
-  if (plate) plate.style.viewTransitionName = `plate-${teamId}`;
+// Mezcla's while the other twelve go with the grid (UI spec §2.7). Leaving for RESULTS is the one
+// exception: every plate moves to its own place, so each is named and the grid itself is not.
+function nameLeavingPlates(scene) {
+  if (scene.screen !== 'results') {
+    const called = screen.querySelector(`.attract .plate[data-team="${scene.featured}"]`);
+    if (called) called.style.viewTransitionName = `plate-${scene.featured}`;
+    return;
+  }
+  const unis = screen.querySelector('.attract .unis');
+  if (unis) unis.style.viewTransitionName = 'none';
+  for (const plate of screen.querySelectorAll('.attract .plate')) {
+    plate.style.viewTransitionName = `plate-${plate.dataset.team}`;
+  }
+}
+
+// The bridge in: the plate that was on Resultado or Mezcla returns to its slot in ATTRACT's grid
+// (§8.2), so the incoming ATTRACT names it. `shown` is still the screen being left, because
+// render() updates it after the change is started.
+//
+// It also clears whatever the last change left behind. `vt()` writes these names as inline styles,
+// so an imperative one overwrites them and has to put them back by name, not by emptying them.
+function nameReturningPlate() {
+  const unis = screen.querySelector('.attract .unis');
+  if (unis) unis.style.viewTransitionName = 'attract-plates';
+  for (const plate of screen.querySelectorAll('.attract .plate')) plate.style.viewTransitionName = '';
+  if (shown === null || familyOf(shown.screen) !== 'standby' || shown.featured === null) return;
+  const back = screen.querySelector(`.attract .plate[data-team="${shown.featured}"]`);
+  if (back) back.style.viewTransitionName = `plate-${shown.featured}`;
 }
 
 function draw(snapshot) {
   const name = screenFor(snapshot);
   stage.dataset.screen = name;
   backdrop.dataset.screen = name; // the shade lives on the backdrop and is keyed to the screen
+  stage.classList.toggle('arriving', arriving);
   if (name === 'attract') {
     patch(screen, attractHtml(snapshot.teams));
+    // A slot of its own, so ending the event changes the words without rewriting the grid (§8.10).
+    patch(slot('footer'), attractFooter(snapshot));
+    nameReturningPlate();
+    return;
+  }
+  if (name === 'results') {
+    // RESULTS has a frame of its own, because it has no band (§8.3).
+    patch(screen, RESULTS_FRAME_HTML);
+    patch(slot('body'), resultsHtml(snapshot));
     return;
   }
   patch(screen, FRAME_HTML);
   patch(slot('count'), countHtml(snapshot));
+  patch(slot('signal'), signalMarkHtml(name));
   patch(slot('net'), snapshot.scrambleSvg ?? ''); // SVG from our own scramble worker
   patch(slot('scramble'), scrambleHtml(snapshot));
   if (familyOf(name) === 'standby') {
     patch(slot('body'), standbyHtml(snapshot));
+    return;
+  }
+  if (name === 'nosignal') {
+    // The header and the band above and below it are the frame's own, unchanged (§10.3).
+    patch(slot('body'), noSignalHtml(snapshot));
     return;
   }
   patch(slot('body'), SOLO_HTML);
@@ -119,8 +171,10 @@ function paintClock(snapshot) {
   clock.className = `clock ${display.clockTone}${display.penalty ? ` penalty-${display.penalty.state}` : ''}`;
   const digits = clock.querySelector('.digits');
   if (digits.textContent !== display.clock) digits.textContent = display.clock;
-  // PENDING's clock moves into Resultado's MEJOR TIEMPO when it holds the best time (§7.2).
-  digits.style.viewTransitionName = clockIsBest(snapshot) ? 'time' : '';
+  // The clock keeps its identity wherever the next screen holds the same time: PENDING's, moving
+  // into Resultado's MEJOR TIEMPO when it is the best (§7.2), and RUNNING's, shrinking into NO
+  // SIGNAL's TIEMPO CONGELADO (§10.5). Only one screen is ever rendered, so the two cannot collide.
+  digits.style.viewTransitionName = snapshot.phase === 'RUNNING' || clockIsBest(snapshot) ? 'time' : '';
   if (display.penalty) clock.querySelector('.penalty').textContent = display.penalty.text;
   const status = solo.querySelector('.status');
   status.className = `status ${display.statusTone}`;
