@@ -27,7 +27,8 @@ radius introduced during STANDBY was converted to `cqw` for this reason (§2.2).
 | 4 RUNNING | ✅ Approved | **`running-06-final.html`** |
 | 5 PENDING | ✅ Approved | **`pending-16-final.html`**, with the screen changes in `pending-13-attract-final.html`, `pending-09-best.html` and `standby-11-board-fill.html` (§2.7) |
 | 6 RESULTS | ✅ Approved | **`results-05-paws.html`** (the sequence, stage C) and **`results-04-kitty-above.html`** (the still) |
-| 7–10 | Not yet designed | — |
+| 7 NO SIGNAL | ✅ Approved | **`nosignal-06-identity.html`** (stage B, the change) and `nosignal-01-regime.html` (stage C, the still) |
+| 8–10 | The operator window's screens — see the operator UI spec | — |
 
 PENDING's design also changed the shared system (§2.2 motion, §2.5 maze, §2.7 screen changes) and
 STANDBY's standings (§4.9). §9 lists what that means for the two implementation plans already
@@ -36,9 +37,12 @@ written.
 RESULTS added a mascot asset (§2.4), a *results* layout family and four screen changes (§2.7), and one
 more screen with a live maze (§2.5). It needs no amendment to either plan (§9).
 
-The screens are §3 to §8, and §9 stays where it is because both plans cite it by number. The next
-screen, **NO SIGNAL** (screen 7), starts at §10. It follows the motion signature (§2.2), the
-screen-change rule (§2.7), and one requirement RESULTS set for it (§8.9).
+The screens are §3 to §8, and §9 stays where it is because both plans cite it by number. **NO
+SIGNAL** (screen 7) is §10, designed 2026-09-19. It follows the motion signature (§2.2) and the
+screen-change rule (§2.7), and it satisfies the one requirement RESULTS set for it (§8.9). It also
+added a fourth layout family and extended one identity (§2.7), gave `--red` one non-text role
+(§2.1), and **reversed §7.7 item 3** — PENDING is exempt from it (§10.1.1). Screens 8–10 belong to
+the operator window and are designed in the operator UI spec.
 
 ---
 
@@ -73,6 +77,10 @@ plus exactly one new value (locked decision 10).
 - **`--red #EE2737` has one text role: a time past the cutoff**, on RUNNING (§6.1) and in PENDING's
   review of it (§7.1). It was offered and declined for ARMED's +2 and DNF (§5.2), which stay words
   only, and PENDING's verdicts never use it (§7.2).
+- **Besides the mascot glow, red has one non-text role: NO SIGNAL's dot** (§10.3), a .78cqw circle
+  in the header's centre. NO SIGNAL's own words are `--violet` and `#fff`, so the text role above is
+  unchanged. Its frozen time takes `--red` only when the time is past the cutoff, which is the same
+  role again.
 - **PENDING gives `#fff` and `--violet` a meaning on the clock:** white is official, violet is
   provisional (§7.1). A stopped time is violet until the operator's key makes it official.
 - **The empty-slot colour is `--violet` at 45%**, not a new hue. It draws the dashed divider of an
@@ -217,11 +225,16 @@ next university's Mezcla, the two plates crossfade in place instead of one movin
 | standby | Resultado, Mezcla |
 | solo | ARMED, RUNNING, PENDING (the review and the verdict) |
 | results | RESULTS |
+| signal | NO SIGNAL (§10), over ARMED and RUNNING only |
 
 A screen change runs when the family changes, or, within *standby*, when the screen (Resultado or
 Mezcla) or the featured university changes. Within *solo* it never runs. The mat drives those
 changes, and they stay instant (§2.2): ARMED → RUNNING → PENDING, and a mat reset during a verdict,
 which goes straight to ARMED.
+
+***signal* is the one mat-driven change that does run.** It is entered when the mat falls silent and
+left when it comes back (§10.2), and because the family changes, both directions take `--t-long`
+like any other. The clock underneath still freezes instantly, which is the mat-driven part.
 
 **Identities.** Each is a `view-transition-name`, unique on the page:
 
@@ -235,7 +248,7 @@ which goes straight to ARMED.
 | INTENTO | `attempt-word` | Mezcla's label above the figure, and solo's who line |
 | The attempt number | `attempt-n` | Mezcla's `--fs-hero` figure, and solo's who line (bold) |
 | DE {n} | `attempt-of` | Mezcla's small suffix, and solo's who line |
-| The clock, as the best time | `time` | PENDING's clock and Resultado's MEJOR TIEMPO figure, **only when the decided attempt set the best time** (§7.2) |
+| The clock, as the best time or the frozen time | `time` | PENDING's clock and Resultado's MEJOR TIEMPO figure, **only when the decided attempt set the best time** (§7.2); and RUNNING's clock and NO SIGNAL's TIEMPO CONGELADO figure, **only on a change to or from NO SIGNAL** (§10.5) |
 | Band | `band` | every screen except ATTRACT |
 | A standings row | `standing-name-<teamId>`, `standing-time-<teamId>` | the standings column |
 | ATTRACT's plates and footer | `attract-plates`, `attract-footer` | ATTRACT, when it leaves, and when the bridge to RESULTS arrives (§8.2) |
@@ -583,7 +596,7 @@ These came up while designing STANDBY. Screen 10 is not designed here.
 | Attempt 1 DNF, now on attempt 2 | Mezcla, `INTENTO 2 DE 3`. The university is absent from the list until it has an OK time |
 | Operator undoes the third attempt | Whatever phase the core's undo leads to, `result` is re-derived from event state, so no stale result can show |
 | Roster has no participant name | Name line omitted |
-| Signal lost | NO SIGNAL (screen 7) takes over. Not handled here |
+| Signal lost | **Nothing changes.** NO SIGNAL exists only on ARMED and RUNNING (§10.1) |
 
 ### 4.8 Testing
 
@@ -817,7 +830,7 @@ These came up while designing ARMED. The screens themselves are not designed her
 | Solve starts during +2 or past 17 s | A normal RUNNING. PENDING suggests `+2` or `DNF` |
 | Competitor keeps waiting past 17 s | `DNF` / INSPECCIÓN EXCEDIDA stays up. Nothing stops; the solve goes ahead when they start, and PENDING suggests DNF |
 | Mat reset again during ARMED | No change |
-| Signal lost | NO SIGNAL (screen 7) takes over. `inspectionStartedAt` is kept, so when the signal returns ARMED shows the real elapsed time |
+| Signal lost | NO SIGNAL (§10) takes over, after ~400 ms (§10.2). `inspectionStartedAt` is kept, so when the signal returns ARMED shows the real elapsed time. The countdown is covered but keeps running, and a suggestion it earns binds nobody — `Esc` cancels and the attempt is repeated (§10.8) |
 | Operator window reloaded during ARMED | Only accepted results are persisted (system design §7), so inspection is lost and ARMED returns to moment 1 |
 | Roster has no participant name | Name line omitted; the text block holds only the attempt line |
 
@@ -970,7 +983,7 @@ These came up while designing RUNNING. The screens themselves are not designed h
 | Competitor keeps solving past the cutoff | `--red`, LÍMITE EXCEDIDO, still counting. Nothing stops; the operator decides in PENDING |
 | Solve started in the +2 window or past 17 s | A normal RUNNING with nothing shown. PENDING suggests `+2` or `DNF` |
 | Mat reset to 0.00 mid-solve | Not a finish (system design §5). The clock shows `0.00`, and RUNNING stays up until the mat runs and stops again |
-| Signal lost | NO SIGNAL (screen 7) takes over. The core stays in RUNNING, and the solve finishes normally when packets resume |
+| Signal lost | NO SIGNAL (§10) takes over, after ~400 ms (§10.2), and the clock carries `time` into TIEMPO CONGELADO. The core stays in RUNNING, and the solve finishes normally when packets resume, so the clock returns at the real elapsed time and the room sees it jump |
 | Roster has no participant name | Name line omitted, as on ARMED |
 | A different cutoff in `config/event.json` | The status line follows it: `cutoffMs: 240000` reads LÍMITE 4:00, and red starts after `4:00.00` |
 
@@ -1173,8 +1186,11 @@ These came up while designing PENDING. The screens themselves are not designed h
 2. **RESULTS (screen 6):** follows §2.7. Whether RESULTS reuses the idea that the time moves into
    its place is its own question. **Resolved in §8.2:** the plates move into their places instead,
    by identity, through ATTRACT, and the times fade in once the plates have landed.
-3. **NO SIGNAL (screen 7):** it takes over during the review or the verdict like anywhere else. The
-   verdict's 3 s keep running in the core, so when the signal returns, whatever is current is shown.
+3. **NO SIGNAL (screen 7): resolved in §10.1.1, and reversed.** PENDING is **exempt** — the takeover
+   never covers the review or the verdict. The reasoning recorded here was that the verdict's 3 s
+   keep running in the core, so whatever was current would be shown when the signal returned. That
+   is the problem rather than the answer: a lost mat means a cable, which outlasts three seconds, so
+   the verdict would simply be gone. The mat plays no part in PENDING in any case.
 
 ### 7.8 Edge cases
 
@@ -1196,7 +1212,7 @@ These came up while designing PENDING. The screens themselves are not designed h
 | Operator window reloaded mid-verdict | `lastDecision` isn't persisted, so there is no verdict. The attempt is on disk, and the screen is Mezcla or Resultado |
 | Roster has no participant name | Name line omitted, as on ARMED |
 | `prefers-reduced-motion: reduce` | Landed frames at once, and every screen change is a cut |
-| Signal lost | NO SIGNAL (screen 7) takes over |
+| Signal lost | **Nothing changes.** PENDING is exempt (§10.1.1), and the verdict plays in full |
 
 ### 7.9 Testing
 
@@ -1523,7 +1539,7 @@ These came up while designing RESULTS. The screens themselves are not designed h
 | Audience window opened after the bridge | RESULTS finished, with no animation (§8.2) |
 | An accepted time of ten minutes or more | Fits: `59:59.99` leaves 0.91cqw in a grid cell (§8.3) |
 | `prefers-reduced-motion: reduce` | Cuts on the same timing, and RESULTS arrives finished |
-| Signal lost | RESULTS stays up (§8.9) |
+| Signal lost | RESULTS stays up, and nothing marks it (§8.9, §10.1) |
 
 ### 8.11 Testing
 
@@ -1619,5 +1635,269 @@ screens plan, for RESULTS and NO SIGNAL, takes in all of RESULTS' work, the core
 - the view: RESULTS, the bridge's footer, the *results* family and the four new changes (§2.7), the
   kitty (§8.4, §8.5), and `assets/rootkitty-from-above.png` in the audience window.
 
+**NO SIGNAL (§10, 2026-09-19) needs no amendment to either plan either**, and it adds little to the
+next screens plan, because it reuses what SIGNAL CHECK already builds:
+
+- `matDelivering` beside `THRESHOLDS` and `diagnose` in `js/core/signal-health.js`, which the signal
+  check plan (`plans/2026-09-19-signal-check.md`) creates — so the screens plan runs **after** it;
+- `matSilent` in `buildSnapshot` (§10.6), and the operator window's 200 ms ticker re-publishing only
+  when the value changes;
+- the view: NO SIGNAL, the *signal* family and its change (§2.7), and `time` on RUNNING's clock.
+
+No phase, command or persisted state changes, so the engine plan is untouched.
+
 Where that plan changes a file the first two plans create, such as `run-state.js`, `keymap.js`,
 `snapshot.js`, `audience-screens.js` or `audience.js`, it builds on them as written.
+
+---
+
+## 10. Screen 7 — NO SIGNAL
+
+Decided 2026-09-19 in the visual companion. Mockups: `nosignal-01-regime.html` (stage C, the still),
+`nosignal-03-armed.html` (stage A, the ARMED body), `nosignal-04-marker.html` (stage C, what the
+other screens do, which is nothing) and **`nosignal-06-identity.html`** (stage B, the change in and
+out, looping). It follows the motion signature (§2.2) and the screen-change rule (§2.7), and it
+satisfies the one requirement RESULTS set for it (§8.9).
+
+### 10.1 What it is, and where it is not
+
+A takeover that exists on **ARMED and RUNNING, and nowhere else**. The mat's silence is only news
+when the mat is the thing being waited on.
+
+| Phase underneath | When the mat goes silent |
+|---|---|
+| ATTRACT | **nothing** — before the event the mat is often deliberately off, and a warning there is alarm with nothing behind it |
+| STANDBY (Resultado · Mezcla) | **nothing** |
+| ARMED | **NO SIGNAL** |
+| RUNNING | **NO SIGNAL** |
+| PENDING | **nothing** (§10.1.1) |
+| RESULTS | **nothing** — §8.9, the mat plays no part and is likely to be unplugged as the event packs up |
+
+**There is no marker of any other kind.** No header dot, no band line, no tint on the screens that
+are exempt. The audience screen stays a scoreboard and never becomes a diagnostic: the operator has
+SIGNAL CHECK (operator spec §3) and screen 10's health meter, and both are on the laptop, which is
+where the person who can fix it is looking. This also retires the three repair steps in the
+2026-09-15 draft — *Revisa el cable · Enciende el StackMat · Sube el volumen* — which addressed a
+reader who does not exist.
+
+#### 10.1.1 Why PENDING is exempt
+
+This **reverses §7.7 item 3**, written before this screen was designed.
+
+The mat plays no part in PENDING. The time was captured before the signal died, and the operator's
+four keys are keyboard keys, so nothing is waiting on the mat until the *next* attempt needs arming
+— which is ARMED, where the takeover does belong. Taking over would also destroy information that
+cannot be recovered: the verdict runs for `VERDICT_MS` (3000 ms) in the core whether or not it is on
+screen (§7.2), and a lost mat means a cable, which means far longer than three seconds. The room
+would watch a time freeze and then find the standings changed with nothing connecting the two.
+
+### 10.2 When it comes, and when it goes
+
+**It reuses SIGNAL CHECK's thresholds** (`js/core/signal-health.js`, operator spec §3.2) rather than
+defining its own:
+
+```js
+packetsPerSecond: 8,  // a healthy mat sends about 10
+windowMs: 2000,       // how far back packets are counted
+```
+
+The mat counts as silent when the **rate** across the last `windowMs` falls below
+`packetsPerSecond` — fewer than 16 fresh packets in 2 s, not fewer than 8. From a healthy 10 per
+second that crosses at roughly **400 ms** of true silence, and it clears as soon as the rate climbs
+back. The 2 s window gives the hysteresis, so a lossy mat cannot
+flap the screen.
+
+**One threshold, deliberately.** The operator will be reading SIGNAL CHECK's chain with the
+projector behind them. If the audience screen had its own idea of "no signal", the reachable state
+is **PAQUETES ✓** on the laptop while the room reads SIN SEÑAL — with no way to tell which is
+lying. It also means the hardware session (roadmap row 10) retunes both in a single edit, which is
+what `THRESHOLDS` was written for.
+
+**The clock has already frozen** by the time this trips. The digits freeze the instant packets stop,
+because the clock draws `displayMs` from the latest packet (§6.3) — that is §2.2's "instant:
+anything the mat drives", and it happens whether or not the takeover ever comes.
+
+### 10.3 Layout
+
+**ARMED's layout (§5.3) with the body's clock block replaced.** The background and its veil, the
+header, and the band with the cube preview, the scramble and the mascot are **unchanged** — the
+band belongs to the next scramble, which the mat does not affect. The maze follows §2.5 with no new
+rule: frozen under RUNNING, because the core stays in RUNNING through the outage (§6.7), and live
+under ARMED.
+
+```
+┌──────────────────────────────────────────────────────────────┐  header, as STANDBY
+│ [CTF logo]            • SIN SEÑAL        UNIVERSIDAD 12 / 13 │
+├──────────────────────────────────────────────────────────────┤
+│                 ┌───────┐ │ INTENTO 2 DE 3                   │  who line, unchanged
+│                 │ plate │ │ JOSÉ MARTÍNEZ                    │
+│                 └───────┘                                    │  body 39.02cqw
+│                  CRONÓMETRO EN PAUSA                         │  --fs-hero
+│     El tiempo no se ha perdido. Continúa al volver la señal. │  --fs-body
+│                   TIEMPO CONGELADO                           │  --fs-label
+│                        12.47                                 │  --fs-hero
+├──────────────────────────────────────────────────────────────┤
+│ [net]  MEZCLA                                         (^.^)  │  band, unchanged
+│        R' U2 B' L' F D' R2 B U' L F2 U2 R2 D B2 D' F2 L2 …   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Header.** STANDBY's (§4.2), which says *"the header has no centre element"* — this is the one
+screen that has one. A dot, `width .78cqw`, `height .78cqw`, `border-radius 50%`, `--red`, then
+**SIN SEÑAL** in the header's own type (`--fs-body`, `.14em`, uppercase, `--violet`), `gap .7cqw`.
+The word is violet, not red, so `--red`'s single text role is preserved (§2.1).
+
+**Body.** A single flex column, centred on both axes, over ARMED's darkening. From top to bottom:
+
+1. **Who line.** Exactly §5.3's, unchanged: the plate at `width 13cqw`, the divider, and the text
+   block with `INTENTO {attemptNo} DE {attemptsPerCompetitor}` and the participant name. The name
+   line is omitted when the roster has none.
+2. **The headline.** `CRONÓMETRO EN PAUSA`, `--fs-hero`, 800, `letter-spacing -.01em`, `#fff`,
+   `margin-top 1.5cqw` — the clock's own top margin, so the block starts where the clock started.
+3. **The sentence.** `--fs-body`, 500, `--violet`, `line-height 1.7`, `margin-top 1.6cqw`, sentence
+   case. Its one emphasised clause is `#fff` 800 (§10.4).
+4. **The label.** `TIEMPO CONGELADO`, `--fs-label`, `.24em`, uppercase, `--violet`,
+   `margin-top 2.4cqw`. **RUNNING only.**
+5. **The time.** `--fs-hero`, 800, `letter-spacing -.01em`, `tabular-nums`, `margin-top .6cqw`,
+   `--violet` — or `--red` when it is past the cutoff, because that is still true, the same rule
+   PENDING's review uses (§7.1). **RUNNING only.**
+
+**On ARMED, items 4 and 5 are absent** and the sentence changes (§10.4). Nothing replaces the
+countdown: the takeover covers it, with no exception (§10.6).
+
+**Fit.** The content is about 22cqw tall in a 39.02cqw body, against ARMED's own 23cqw, so it needs
+no new measurement. `CRONÓMETRO EN PAUSA` is the widest line at `--fs-hero`.
+
+### 10.4 Wording
+
+| Underneath | Headline | Sentence |
+|---|---|---|
+| RUNNING | **CRONÓMETRO EN PAUSA** | El tiempo **no se ha perdido**. Continúa al volver la señal. |
+| ARMED | **CRONÓMETRO EN PAUSA** | El intento **aún no ha comenzado**. Continúa al volver la señal. |
+
+- The headline is the same in both, because the state is the same. Only the thing at stake differs.
+- **Nothing is red except the dot.** `--red` keeps its single text role — a time past the cutoff
+  (§2.1) — and the frozen time inherits it when it applies. The dot is `--red`'s one non-text role
+  besides the mascot glow, recorded in §2.1.
+- Each string is defined once in the view code, so the wording can change without touching the
+  rules (§2.6).
+
+### 10.5 The screen change
+
+NO SIGNAL is a **fourth layout family**, `signal` (§2.7), so the change runs over `--t-long` in both
+directions like every other family change. §2.7's identity rule then applies on its own, and it is
+what makes the screen mean what it says:
+
+| Element | Name | Behaviour |
+|---|---|---|
+| CTF logo | `logo` | unchanged, holds its place |
+| Band | `band` | unchanged, holds its place |
+| The plate, divider, `INTENTO`, the number, `DE {n}`, the name | `plate-<teamId>`, `rule`, `attempt-word`, `attempt-n`, `attempt-of`, `name-<teamId>` | unchanged, hold their places |
+| **The clock, as the frozen time** | `time` | **RUNNING only:** travels down and shrinks from `--fs-clock` (13.6cqw, `#fff`) into `--fs-hero` (4.4cqw, `--violet`) over `--t-long`, and grows back on the way out |
+
+Everything else fades: the status line, ARMED's countdown, the headline, the sentence, the label and
+the header's centre marker.
+
+- **`time` is extended.** §2.7 gives it to PENDING's clock and Resultado's MEJOR TIEMPO figure.
+  **RUNNING's clock now carries it too, but only when the change is to or from NO SIGNAL** — within
+  *solo* no change ever runs, so it has no other effect. Conditional naming is already how §2.7
+  handles ATTRACT's plates and `time` itself.
+- **There is precedent for the move.** §8.2 already shrinks the clock from `--fs-clock` into
+  `--fs-hero` by this rule, using this name. The distance and the two sizes are the same.
+- **The motion is the sentence.** The screen's claim is *el tiempo no se ha perdido*, and a number
+  that visibly survives the change demonstrates it rather than asserting it. This was chosen over a
+  plain crossfade in `nosignal-06-identity.html`.
+- **`prefers-reduced-motion: reduce`** makes both directions cuts, per §2.2.
+
+**A known cost of `--t-long` on the way out.** View transitions animate a captured image, so during
+the 800 ms return the clock is a still of the frame the change started on; it becomes live when the
+transition ends. An instant exit was offered and declined, in favour of one rule for every screen
+change. Implementations must not try to run the clock during the transition — it would tear against
+the captured frame.
+
+### 10.6 What the snapshot needs
+
+The audience window has no microphone, so it cannot diagnose anything. The operator window computes
+one boolean and publishes it.
+
+```js
+// js/core/signal-health.js, beside THRESHOLDS and diagnose()
+export function matDelivering(packetTimes, now) {
+  const recent = packetTimes.filter((t) => t > now - THRESHOLDS.windowMs).length;
+  return recent / (THRESHOLDS.windowMs / 1000) >= THRESHOLDS.packetsPerSecond;
+}
+```
+
+- `packetTimes` is the array the operator window already keeps for SIGNAL CHECK: timestamps of
+  driver states with `fresh && on`.
+- `buildSnapshot` gains **`matSilent: boolean`**, which is `!matDelivering(packetTimes, now)`. The
+  audience renders NO SIGNAL when `matSilent && (phase === 'ARMED' || phase === 'RUNNING')`, and
+  nothing anywhere else.
+- **No measuring ramp is needed**, unlike `diagnose`. ARMED is only reachable through a mat reset,
+  so packets have already arrived by the time either phase is on screen.
+- **The operator window must re-publish on a ticker, not only on packets.** When packets stop, no
+  packet arrives to trigger a render. It evaluates `matDelivering` on its existing publish path and
+  on a 200 ms ticker, and re-publishes only when the value changes. SIGNAL CHECK solves the same
+  problem the same way.
+- **The core is untouched.** No phase, no command and no persisted state changes. `matSilent` is a
+  presentation flag, and nothing about an attempt depends on it.
+
+### 10.7 Requirements for other screens
+
+**None.** NO SIGNAL asks nothing of screens 8–10.
+
+It does answer two requirements already on record, and amends one of them:
+
+1. **RESULTS (§8.9 item 1):** satisfied — NO SIGNAL cannot cover RESULTS, because it exists only on
+   ARMED and RUNNING.
+2. **SIGNAL CHECK (operator spec §3.12 item 1)** said NO SIGNAL "is what the room holds while the
+   operator diagnoses". **That is now only sometimes true**, and the operator spec is amended: the
+   room holds whatever screen it was on, which during a pre-event check or between competitors is
+   ATTRACT or STANDBY, unchanged. NO SIGNAL holds the room only when the signal died during ARMED or
+   RUNNING. The calmness that requirement asked for is delivered either way.
+
+### 10.8 Edge cases
+
+| Case | Behaviour |
+|---|---|
+| Signal lost during inspection | The countdown is covered and **keeps running** — it is a local timer, not a mat packet, and §5.7 keeps `inspectionStartedAt`. A competitor can return to a `+2` or `DNF` they never saw. It binds nobody: *"a suggestion is never applied on its own"* (§5.1). **`Esc` cancels the inspection and the attempt is repeated** |
+| Signal lost past the cutoff | The frozen time keeps `--red`, which is still true (§7.1) |
+| Signal returns mid-solve | The core stayed in RUNNING (§6.7), so the clock comes back at the solve's **real** elapsed time, not where it froze. The room sees it jump forward. Deliberate |
+| Signal lost and back within ~400 ms | Nothing happens. The threshold never trips, and the clock catches up on the next packet |
+| Signal lost on ATTRACT, STANDBY, PENDING or RESULTS | Nothing changes on the projector (§10.1) |
+| Signal lost during a verdict | Nothing. The verdict plays in full (§10.1.1) |
+| Audience window opened while the signal is lost | NO SIGNAL rendered with no animation, as §7.2 does for a window that did not see the review |
+| Operator window reloaded while the signal is lost | Inspection is lost and ARMED returns to moment 1 (§5.7). If the mat is still silent, NO SIGNAL comes back over it |
+| Mat reset arriving as the signal returns | Ordinary: the screen follows the phase the core lands in |
+| Mock driver (operator spec §3.10) | Packets are synthesised, so the mat never falls silent unless a scenario scripts it |
+| `prefers-reduced-motion: reduce` | Both directions are cuts (§2.2) |
+
+### 10.9 Testing
+
+**Core (`node --test`):**
+
+- `matDelivering` is false when `packetTimes` is empty;
+- it is true for a steady 10 per second across the window;
+- it is **true** at exactly `THRESHOLDS.packetsPerSecond` and false one packet below, so the
+  boundary is pinned;
+- packets older than `windowMs` are not counted;
+- `buildSnapshot` sets `matSilent` from it, and leaves phase, attempts and standings untouched.
+
+**Browser (1080p, `npm run smoke`):**
+
+- NO SIGNAL over RUNNING: the who line, headline, sentence, label and the frozen time at
+  `--fs-hero`, with the band and header intact and the centre marker present;
+- NO SIGNAL over ARMED: no label and no figure, and the countdown gone;
+- the frozen time is `--red` when the time is past the cutoff;
+- the change in and out at `--t-long`, with the clock carrying `time`;
+- ATTRACT, STANDBY, PENDING and RESULTS render unchanged with `matSilent: true`;
+- under `prefers-reduced-motion: reduce`, both directions are cuts.
+
+### 10.10 What this changes elsewhere in this spec
+
+1. **§2.1** — `--red` gains one non-text role, the signal dot. Its single **text** role is unchanged.
+2. **§2.7** — a fourth family, `signal`, and `time` extended to RUNNING's clock for this change only.
+3. **§4.7, §5.7, §6.7, §7.8** — the `Signal lost` rows, all written before this screen was designed.
+4. **§7.7 item 3** — reversed; PENDING is exempt (§10.1.1).
+5. **§1** — the screen table and the paragraph that pointed forward to this section.
+6. **Operator spec §3.12 item 1** — amended (§10.7).

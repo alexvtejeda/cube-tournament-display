@@ -402,10 +402,13 @@ of freezing mid-way.
 
 ### 3.12 Requirements for other screens
 
-1. **NO SIGNAL (screen 7, audience spec §10):** it is what the room holds while the operator
-   diagnoses. If the signal was already lost when the check opened, NO SIGNAL can sit on the
-   projector for a minute or more. That is a reason for it to be calm rather than alarming, and it
-   joins the requirement RESULTS already set (audience §8.9): it must not take over RESULTS.
+1. **NO SIGNAL (screen 7, audience spec §10):** ✅ **answered there, and narrowed.** NO SIGNAL
+   exists over **ARMED and RUNNING only**, so it is usually *not* what the room holds while the
+   operator diagnoses: a pre-event check, or one between competitors, leaves ATTRACT or STANDBY on
+   the projector unchanged, with no marker of any kind. When the signal did die mid-attempt it can
+   sit there for a minute or more, which is why it is calm — no red words, and no repair steps,
+   since the person who can act on them is reading this screen instead. It cannot take over RESULTS
+   (audience §8.9) because it cannot appear there at all.
 2. **SETUP (screen 9):** ✅ **answered in §4.** It reuses the chain (§3.2), the verdict (§3.3), the
    picker (§3.8) and the remembered device. Its own question — permission, resume or fresh, and
    whether a complete mat test is required before an event starts — is settled there: a fresh event
