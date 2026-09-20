@@ -181,9 +181,12 @@ Constraints the implementer must respect:
   green `npm run screens` proves nothing about it. The check is: canvas client width == `innerWidth`
   on a window wider than 16:9, while `.stage` stays 16:9.
 
-**Ordering:** before plan 5, so RESULTS and NO SIGNAL are built on the corrected structure rather
-than retrofitted. Confirm plan 5 does not assume the canvas is a child of `.stage` before dispatching
-it.
+**Ordering: before plan 5, and confirmed safe.** Plan 5 touches the maze only through the API —
+`maze.pause()` / `maze.resume()` and `mazeFrozen(snapshot)` (its lines 1032, 1669, 1694) — never by
+querying the canvas's position, and it does not edit `audience.html` at all. It *does* use
+`var(--stage-w)` at its line 1513, in the band keyframe. That is the token this task must leave
+alone, so the two are compatible in this order and only in this order: retrofitting after plan 5
+would mean re-verifying its motion checks.
 
 **Three plans edit `ROADMAP.md`:** engine Task 18, audience-screens Task 10 (done — it appended a
 paragraph after the Phase-1 summary) and results Task 13, which runs last. **Task 13 must read the
