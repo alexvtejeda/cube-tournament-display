@@ -186,3 +186,28 @@ img { display: block; }
 }
 .solo .clock.penalty-in .penalty { opacity: 1; transform: none; }
 .solo .clock.penalty-out .penalty { opacity: 0; transform: translateX(-.35em); }
+
+/* Motion (§2.2, §2.7). With reduced motion none of it runs: js/ui/audience.js starts no view
+   transition, and a verdict shows its landed frame at once. */
+@media (prefers-reduced-motion: no-preference) {
+  /* PENDING: the clock's colour changes, and the verdict's tag entering and leaving (§7.1–§7.2). */
+  .solo.pending .clock { transition: color var(--t-short) var(--ease); }
+  .solo.pending .penalty { transition: opacity var(--t-short) var(--ease), transform var(--t-short) var(--ease); }
+}
+/* A screen change: what has the same identity on both screens moves there, and the rest fades. */
+::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) {
+  animation-duration: var(--t-long);
+  animation-timing-function: var(--ease);
+}
+/* A label whose words change crossfades in place instead of stretching. */
+::view-transition-old(label), ::view-transition-new(label) { inline-size: auto; }
+/* Leaving ATTRACT, the band rises from the stage's bottom edge... */
+::view-transition-group(band), ::view-transition-image-pair(band) { overflow: clip; }
+::view-transition-new(band):only-child { animation-name: band-rise; }
+@keyframes band-rise { from { transform: translateY(100%); } }
+/* ...and pushes the plates and the footer up by its height, fading them out over the first --t-step. */
+::view-transition-old(attract-plates), ::view-transition-old(attract-footer) { animation-name: attract-push; }
+@keyframes attract-push {
+  50% { opacity: 0; }
+  to { opacity: 0; transform: translateY(calc(-.1095 * var(--stage-w))); }
+}

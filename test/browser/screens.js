@@ -336,6 +336,112 @@ check('the maze holds its frame through the verdict', !(await mazeMoves()));
 await show(at(decide(review, 'plus2'), 3000), 1000);
 check('the maze moves again with the change to Mezcla', (await textOf('.figure .big')) === '3DE 3' && await mazeMoves());
 
+// Motion (UI spec §2.2, §2.7, §7.2).
+const changeCount = () => js('window.changes.length');
+// Shows `snapshot` and checks that exactly one screen change ran, and that every name in `names` was on
+// both sides of it. Returns the change.
+async function moves(label, snapshot, names) {
+  const count = await changeCount();
+  await show(snapshot);
+  const ran = (await changeCount()) === count + 1;
+  const change = ran ? await js('window.changes.at(-1)') : { before: [], after: [], animations: [] };
+  const missing = names.filter((name) => !change.before.includes(name) || !change.after?.includes(name));
+  check(label, ran && missing.length === 0, ran ? (missing.length ? `not on both sides: ${missing.join(', ')}` : '') : 'no screen change ran');
+  return change;
+}
+async function cuts(label, snapshot, wait) {
+  const before = await changeCount();
+  await show(snapshot, wait);
+  check(label, (await changeCount()) === before);
+}
+const clockNow = () => js("(() => { const clock = document.querySelector('.solo .clock'); return [clock.querySelector('.digits').textContent, getComputedStyle(clock).color, clock.className]; })()");
+const digitsBox = () => js("JSON.stringify(document.querySelector('.solo .digits').getBoundingClientRect())");
+const WHO = ['plate-uce', 'rule', 'attempt-word', 'attempt-n', 'attempt-of', 'name-uce', 'band', 'logo'];
+
+await show(at(createState(config), 0), 1000);
+const leaving = await moves('ATTRACT → Mezcla: the logo and the called plate move', at(mezclaEmpty, 0), ['logo', 'plate-loyola']);
+check('ATTRACT → Mezcla: the band rises, and pushes the plates and the footer up', !leaving.before.includes('band')
+  && ['::view-transition-new(band) band-rise', '::view-transition-old(attract-plates) attract-push', '::view-transition-old(attract-footer) attract-push']
+    .every((animation) => leaving.animations.includes(animation)));
+check("ATTRACT → Mezcla: only the called university's plate leaves the grid", leaving.before.filter((name) => name.startsWith('plate-')).length === 1);
+
+await show(at(resultado, 0), 1000);
+const called = await moves('Resultado → Mezcla (N): the label and the divider stay', at(mezcla, 0), ['label', 'rule', 'band', 'logo']);
+check("Resultado → Mezcla: the next university's plate crossfades in", called.before.includes('plate-pucmm') && !called.after.includes('plate-pucmm')
+  && called.after.includes('plate-uce') && !called.before.includes('plate-uce'));
+await show(at(next(createState(config, uceFirst)), 0));
+await moves('Mezcla → ARMED (the mat reset): the plate, the divider, INTENTO · n · DE 3 and the name move', at(armed, 0), WHO);
+await cuts('ARMED → RUNNING: no screen change, the mat drives it', runningAt(4200));
+await cuts('RUNNING → PENDING: no screen change', at(review, 0));
+const stop = await js("(() => { const s = getComputedStyle(document.querySelector('.solo .clock')); return s.transitionProperty + ' ' + s.transitionDuration; })()");
+check('PENDING: the stopped time turns violet over --t-short', stop === 'color 0.2s', stop);
+
+// The verdict plays in the window that saw the review (§7.2).
+const reviewBox = await digitsBox();
+let before = await changeCount();
+await post(decided(review, 'plus2'));
+await sleep(150);
+const entering = await clockNow();
+const taggedBox = await digitsBox();
+await sleep(350);
+const ticked = await clockNow();
+await sleep(600);
+const landed = await clockNow();
+check('2: the tag enters, and the time is still violet', entering[0] === '1:42.18' && entering[1] === VIOLET && entering[2].includes('penalty-in'), entering.join(' · '));
+check('2: the tag never moves the clock', taggedBox === reviewBox);
+check('2: the seconds tick', ticked[0] === '1:43.18', ticked[0]);
+check('2: the time lands white, +2 applied, and the tag slides away', landed[0] === '1:44.18' && landed[1] === WHITE && landed[2].includes('penalty-out'), landed.join(' · '));
+check('the verdict is no screen change', (await changeCount()) === before);
+await moves('the verdict → Mezcla: the plate, the divider, INTENTO · n · DE 3 and the name move', at(decide(review, 'plus2'), 3000), WHO);
+const update = await moves('the standings update: the universities move to their new slots', at(decide(review, 'plus2'), 4200),
+  ['standing-name-intec', 'standing-time-intec', 'standing-name-itla', 'standing-time-itla']);
+check('the standings update: UCE enters the board, and UNPHU leaves it', update.after.includes('standing-name-uce') && !update.before.includes('standing-name-uce')
+  && update.before.includes('standing-name-unphu') && !update.after.includes('standing-name-unphu'));
+const skipped = reduce(decide(review, 'plus2'), cmd('nextTeam'));
+await moves('Mezcla → Mezcla (→): the label, the divider and INTENTO · n · DE 3 stay', at(withScramble(skipped), 4200),
+  ['label', 'rule', 'attempt-word', 'attempt-n', 'attempt-of', 'band', 'logo']);
+await moves('Mezcla → PENDING (U): the same moves, in reverse', at(reduce(skipped, cmd('undo')), 0), ['rule', 'attempt-word', 'attempt-n', 'attempt-of', 'band', 'logo']);
+
+await post(decided(review, 'dnf'));
+await sleep(400);
+const dnfEntering = await clockNow();
+await sleep(600);
+const dnfLanded = await clockNow();
+check('D: the tag enters over the time, and DNF replaces it', dnfEntering[0] === '1:42.18' && dnfEntering[2].includes('penalty-in')
+  && dnfLanded[0] === 'DNF' && dnfLanded[1] === WHITE, `${dnfEntering[0]} → ${dnfLanded[0]}`);
+await show(at(review, 0));
+await post(decided(review, 'redo'));
+await sleep(700);
+const rewinding = await clockNow();
+await sleep(600);
+const rewound = await clockNow();
+check('R: the clock rewinds to 0.00, and stays violet', !['1:42.18', '0.00'].includes(rewinding[0]) && rewound[0] === '0.00' && rewound[1] === VIOLET,
+  `${rewinding[0]} → ${rewound[0]}`);
+await cuts('the verdict → ARMED (a mat reset during it): no screen change', at(apply(decide(review, 'redo'), mat(packet('I', 0))), 0));
+
+// Attempt 3: the clock moves into MEJOR TIEMPO only when it is the university's best time (§7.2).
+const third = (ms) => stopAt(ms, apply(next(createState(config, [...uceFirst, attempt('uce', 2, 110000)])), mat(packet('I', 0))));
+await show(at(third(102180), 0));
+await show(decided(third(102180), 'accept'), 1500);
+await moves('the verdict → Resultado: the best time moves into MEJOR TIEMPO', at(decide(third(102180), 'accept'), 3000), ['plate-uce', 'rule', 'name-uce', 'time', 'band', 'logo']);
+await show(at(third(120000), 0));
+await show(decided(third(120000), 'accept'), 1500);
+const slower = await moves('the verdict → Resultado, not the best: the plate, the divider and the name move', at(decide(third(120000), 'accept'), 3000), ['plate-uce', 'rule', 'name-uce']);
+check('not the best: the clock fades, and MEJOR TIEMPO fades in', !slower.before.includes('time') && slower.after.includes('time'));
+
+// A window that did not see the review shows the landed frame at once (§7.2).
+await show(at(armed, 0));
+await show(decided(review, 'plus2'), 100);
+check('a verdict this window did not see decided shows its landed frame at once', (await clockNow())[0] === '1:44.18');
+
+// With reduced motion every change is a cut, and a verdict lands at once (§2.2).
+await tab.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+await show(at(review, 0));
+await show(decided(review, 'plus2'), 100);
+check('reduced motion: the verdict shows its landed frame at once', (await clockNow())[0] === '1:44.18');
+await cuts('reduced motion: every screen change is a cut', at(decide(review, 'plus2'), 3000));
+await tab.send('Emulation.setEmulatedMedia', { features: [] });
+
 check('no uncaught errors', tab.errors.length === 0, tab.errors.join(' | '));
 console.log(`\nScreenshots in ${OUT.pathname}`);
 tab.close();
