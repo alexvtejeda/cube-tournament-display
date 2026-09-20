@@ -13,9 +13,14 @@
     <link rel="stylesheet" href="css/audience.css">
   </head>
   <body>
-    <main class="stage" id="stage" data-screen="waiting">
+    <!-- The maze is an ambient backdrop for the whole window, so it sits outside the 16:9 stage: the
+         stage has container-type: size, which contains even fixed descendants. The shade travels
+         with it, or the vignette would stop at the stage edge and leave a seam. -->
+    <div class="backdrop" id="backdrop" data-screen="waiting">
       <canvas class="maze" id="maze"></canvas>
       <div class="shade"></div>
+    </div>
+    <main class="stage" id="stage" data-screen="waiting">
       <div class="screen" id="screen"></div>
     </main>
     <script type="module" src="js/ui/audience.js"></script>

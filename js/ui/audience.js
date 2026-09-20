@@ -11,6 +11,7 @@ import {
 import { VERDICT_LANDS_MS, clockIsBest, soloDisplay } from './clock-display.js';
 
 const stage = document.getElementById('stage');
+const backdrop = document.getElementById('backdrop');
 const screen = document.getElementById('screen');
 const maze = createMaze({ canvas: document.getElementById('maze') });
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -64,6 +65,7 @@ function nameCalledPlate(teamId) {
 function draw(snapshot) {
   const name = screenFor(snapshot);
   stage.dataset.screen = name;
+  backdrop.dataset.screen = name; // the shade lives on the backdrop and is keyed to the screen
   if (name === 'attract') {
     patch(screen, attractHtml(snapshot.teams));
     return;

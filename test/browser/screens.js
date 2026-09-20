@@ -336,6 +336,30 @@ check('the maze holds its frame through the verdict', !(await mazeMoves()));
 await show(at(decide(review, 'plus2'), 3000), 1000);
 check('the maze moves again with the change to Mezcla', (await textOf('.figure .big')) === '3DE 3' && await mazeMoves());
 
+// The maze is a backdrop for the whole window, not for the stage (§2.5). At 1080p the stage fills the
+// window, so only a window that is not 16:9 can tell the two apart: there the maze must still reach
+// both edges while the stage stays 16:9. Both halves are checked, because widening the stage would
+// satisfy the first one alone and that is exactly the fix --stage-w must not receive.
+await tab.send('Emulation.setDeviceMetricsOverride', { width: 2560, height: 1080, deviceScaleFactor: 1, mobile: false });
+await sleep(600);
+const wide = await js(`(() => {
+  const canvas = document.getElementById('maze').getBoundingClientRect();
+  const stage = document.getElementById('stage').getBoundingClientRect();
+  return JSON.stringify({
+    window: [innerWidth, innerHeight],
+    canvas: [Math.round(canvas.width), Math.round(canvas.height)],
+    stage: [Math.round(stage.width), Math.round(stage.height)],
+    expectedStage: Math.round(Math.min(innerWidth, innerHeight * 16 / 9)),
+  });
+})()`).then(JSON.parse);
+check('a window wider than 16:9: the maze fills the window', wide.canvas[0] === wide.window[0] && wide.canvas[1] === wide.window[1],
+  `window ${wide.window.join('\u00d7')}, maze ${wide.canvas.join('\u00d7')}`);
+check('a window wider than 16:9: the stage is still 16:9, not stretched', wide.stage[0] === wide.expectedStage
+  && Math.abs(wide.stage[0] / wide.stage[1] - 16 / 9) < 0.01,
+  `stage ${wide.stage.join('\u00d7')}, expected width ${wide.expectedStage}`);
+await tab.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+await sleep(600);
+
 // Motion (UI spec §2.2, §2.7, §7.2).
 const changeCount = () => js('window.changes.length');
 // Shows `snapshot` and checks that exactly one screen change ran, and that every name in `names` was on
