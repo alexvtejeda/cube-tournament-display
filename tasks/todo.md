@@ -11,13 +11,13 @@ branch itself, then dispatches the next. It does not execute plan tasks itself.
 
 ## ⚠ READ THIS FIRST — is a dispatch already in flight?
 
-**✅ ALL FIVE PLANS AND TASK 4.5 ARE DONE AND VERIFIED (2026-09-20 00:45). Nothing is in flight.**
-The branch is ready for `finishing-a-development-branch`.
+**✅ THE CHAIN IS COMPLETE AND MERGED (2026-09-20 00:55).** All five plans and the maze fix are on
+`main` as merge commit `694e4b8`. The `engine` branch and its worktree are gone; `main` is the only
+branch. **Nothing is in flight, and there is no worktree to collide on any more** — the live-agent
+runbook below only matters again once someone starts a new one.
 
-`engine` is **62 commits ahead** of `main` and the merge is **clean**: `main` only ever changed
-`tasks/todo.md`, `engine` changed 78 files, and the two sets do not overlap. It is not a
-fast-forward — that is expected, because this tracker is maintained on `main` while the code lives
-on `engine`.
+Verified *on the merged result*, not just on the branch: `npm test` 257 / 0 / 0, `npm run smoke`
+54/54 over three serial runs with identical check lists, `npm run screens` 166/166.
 
 **Two things are still open, and neither should merge silently:**
 1. **The two by-eye checks from plan 3** — Task 8 Step 5 and Task 9 Step 7, the mockup and motion
@@ -112,8 +112,8 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 
 | | |
 |---|---|
-| Worktree | `/home/noob_master/cube-tournament-display/.worktrees/engine` |
-| Branch | `engine` — **carries all five plans**, merged back to `main` only at the very end |
+| Worktree | **gone** — removed at the merge. `.worktrees/` now holds only the `ctf-interuniversitario` symlink, which the config test still needs. |
+| Branch | **`main`** — `engine` was merged as `694e4b8` and deleted. `main` is the only branch. |
 | Node | v24.11.1 (plans need ≥ 24.2) |
 | Suite | `npm test` → **pass 257, fail 0, skipped 0**; `npm run smoke` → **54/54, three serial runs identical**; `npm run screens` → **166/166** |
 | Last commit | `ab6cae4` Record RESULTS and NO SIGNAL as built |
@@ -171,7 +171,10 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
   Verified by the orchestrator: 215 / 0 / 0, smoke 50/50 on three serial runs with identical check
   lists, screens **127/127** including both new guards, `css/tokens.css` untouched, vendor untouched,
   stash stack clean. Measured at 2560×1080: **maze 2560×1080, stage 1920×1080.**
-- [ ] **6 · Finish the branch** — `finishing-a-development-branch`, merging `engine` into `main`.
+- [x] **6 · Finish the branch** — **DONE 2026-09-20.** Merged as `694e4b8` (`--no-ff`, 78 files,
+  7608 insertions, no conflicts). Gates re-run on the merged result before cleanup: 257 / 0 / 0,
+  smoke 54/54 ×3 identical, screens 166/166. Worktree removed, `engine` deleted, `.worktrees/`
+  symlink intact, no stray Chrome profiles.
 
 ### 4.5 · The maze must fill the window, while the stage stays 16:9
 
@@ -514,10 +517,12 @@ uncommitted: two agents, one worktree.
 
 ## Parked — not part of the chain, do not lose
 
-- [ ] **A local, non-GitHub git remote on the owner's Fedora machine.** Asked for on 2026-09-19; the
-  machine was off at the time. When it is on: `mkdir -p ~/repos && git init --bare
-  ~/repos/cube-tournament-display.git` there, then `git remote add fedora
-  <user>@<tailscale-host>:repos/cube-tournament-display.git` here and `git push fedora main engine`.
+- [ ] **Push to the Fedora remote — the remote now EXISTS but has never been pushed to.**
+  `git remote -v` shows `fedora  fedora:repos/cube-tournament-display.git`. On 2026-09-20 00:52
+  `git ls-remote fedora` timed out, so **the machine was off and nothing has been pushed**. When it
+  is on: `git push fedora main`. There is no `engine` branch to push any more — it is merged and
+  deleted, so `main` alone carries everything. **This repo has no other remote**, so until that push
+  happens the entire history exists only on this machine.
   Tailscale addresses are in the 100.64.0.0/10 range. `git bundle` is the offline fallback.
   Why it matters: **this machine has no working microphone** (WSLg's `RDPSource` delivers zero
   samples), so the mat can only ever be tested somewhere else.
