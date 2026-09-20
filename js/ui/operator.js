@@ -13,8 +13,12 @@ import { createRealDriver } from '../drivers/real.js';
 import { SCENARIOS } from '../drivers/scenarios.js';
 import { createScrambler } from '../scrambler.js';
 import { createOperatorView } from './operator-debug-view.js';
+import { createSignalCheck } from './signal-check.js';
 
 const root = document.getElementById('operator');
+const checkRoot = document.getElementById('signal-check');
+// Where the chosen input is remembered, beside the store's own key. SETUP (screen 9) reads it too.
+const DEVICE_KEY = 'cube-tournament-display:deviceId';
 const mock = new URLSearchParams(location.search).get('driver') === 'mock';
 // Mock runs keep their own log, so a rehearsal can never touch a real event's results.
 const store = createStore(localStorage, mock ? `${STORAGE_KEY}:mock` : STORAGE_KEY);
@@ -58,11 +62,35 @@ function run(config, attempts) {
   const publisher = createPublisher();
   const scrambler = createScrambler(new Worker('node_modules/cstimer_module/cstimer_module.js'));
   const driver = mock ? createMockDriver() : createRealDriver();
+  // One connection, shared by the debug view's button and the check's picker: the driver itself
+  // does not track whether it started, and the check has to say so (operator spec §3.2).
+  let connected = mock;
+  let deviceId = localStorage.getItem(DEVICE_KEY) ?? '';
+  let deviceLabel = mock ? 'Mock mat' : null;
+  const matFacade = {
+    connected: () => connected,
+    deviceId: () => deviceId,
+    deviceLabel: () => deviceLabel,
+    listDevices: () => driver.listDevices(),
+    async connect(id) {
+      await driver.start(id);
+      connected = true;
+      deviceId = id ?? '';
+      if (deviceId) localStorage.setItem(DEVICE_KEY, deviceId);
+      const devices = await driver.listDevices();
+      deviceLabel = devices.find(([value]) => value === deviceId)?.[1] ?? devices[0]?.[1] ?? null;
+    },
+    permission: async () =>
+      (await navigator.permissions?.query({ name: 'microphone' }).catch(() => null))?.state ?? null,
+    sample: (seconds) => new Promise((resolve) => driver.getSample(seconds, resolve)),
+  };
+  const signalCheck = createSignalCheck({ root: checkRoot, mat: matFacade });
+  let checkOpen = false;
   const view = createOperatorView(root, {
     mock,
     scenarios: Object.keys(SCENARIOS),
     onScenario: (name) => driver.play(SCENARIOS[name]()),
-    onConnect: (deviceId) => driver.start(deviceId),
+    onConnect: (id) => matFacade.connect(id),
     listDevices: () => driver.listDevices(),
   });
 
@@ -93,13 +121,51 @@ function run(config, attempts) {
     job.then(({ scramble, svg }) => dispatch({ type: 'scramble', seq, scramble, svg }));
   }
 
-  driver.onState((matState) => dispatch({ type: 'mat', state: matState, at: Date.now() }));
+  // The check is a bench, not a view (operator spec §3.1): while it is open the mat reaches
+  // neither the reducer nor, therefore, the audience window.
+  driver.onState((matState) => {
+    if (checkOpen) {
+      signalCheck.onMat(matState);
+      return;
+    }
+    dispatch({ type: 'mat', state: matState, at: Date.now() });
+  });
+
+  function openCheck() {
+    // ARMED is the one held screen that draws live mat data — the hands, the light, the inspection
+    // countdown — so it steps back to SCRAMBLE, keeping the scramble, rather than freezing into a
+    // lie on the projector. RESULTS joins this list when that phase exists.
+    const armedAndWaiting = state.phase === 'ARMED' && state.inspectionStartedAt === null;
+    if (!['STANDBY', 'SCRAMBLE'].includes(state.phase) && !armedAndWaiting) return;
+    if (armedAndWaiting) dispatch({ type: 'command', command: 'disarm', at: Date.now() });
+    checkOpen = true;
+    root.hidden = true;
+    signalCheck.open();
+  }
+
+  function closeCheck() {
+    checkOpen = false;
+    signalCheck.close();
+    root.hidden = false;
+  }
 
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
     const command = commandForKey(e.key, state.phase);
+    // While the check is open no key reaches the event: a stray D would record a DNF nobody saw.
+    if (checkOpen) {
+      if (command === 'signalCheck' || e.key === 'Escape') {
+        e.preventDefault();
+        closeCheck();
+      }
+      return;
+    }
     if (command === null) return;
     e.preventDefault();
+    if (command === 'signalCheck') {
+      openCheck();
+      return;
+    }
     dispatch({ type: 'command', command, at: Date.now() });
   });
 
