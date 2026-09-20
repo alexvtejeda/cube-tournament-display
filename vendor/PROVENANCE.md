@@ -9,7 +9,7 @@ Recorded **2026-09-15**.
 |---|---|---|---|
 | `stackmat.js` | [csTimer](https://github.com/cs0x7f/cstimer) `src/js/hardware/stackmat.js` | `2547d82` | **No — never edit** |
 | `three.module.js` | [three.js](https://github.com/mrdoob/three.js), via `ctf-interuniversitario/public/assets/vendor/` | — | No |
-| `hero-maze3d.js` | `ctf-interuniversitario/public/assets/js/hero-maze3d.js` | — | **Pending** — see below |
+| `hero-maze3d.js` | `ctf-interuniversitario/public/assets/js/hero-maze3d.js` | — | **Yes** — see below |
 
 ## `stackmat.js` — do not edit
 
@@ -29,18 +29,20 @@ git -C ../cstimer cat-file -p <ref>:src/js/hardware/stackmat.js > vendor/stackma
 
 Then update the ref in the table above.
 
-## `hero-maze3d.js` — pending refactor
+## `hero-maze3d.js` — refactored
 
-Taken unmodified, but it does not yet fit this project. Upstream it self-initialises at import time
-against hardcoded `#hero-canvas` and `#inicio` elements, and adds a `hero--maze` class to the hero
-section.
+Upstream it self-initialises at import time against hardcoded `#hero-canvas` and `#inicio`
+elements, and adds a `hero--maze` class to the hero section. Here it exports
+`createMaze({ canvas })`, which returns `{ pause, resume }`, so the audience window can freeze the
+maze while a solve is running. `pause()` stops the render loop and the canvas keeps its last
+frame; a resize while paused draws that frame again, because resizing a canvas clears it. It also
+imports three.js from its own folder.
 
-Planned change: wrap it as `createMaze({ canvas })` returning `{ pause, resume, destroy }`, so the
-display can freeze the maze while a solve is running. The rendering, maze generation, BFS
-pathfinding and its existing guards (`prefers-reduced-motion`, tab-visibility pause,
-IntersectionObserver pause, pixel-ratio cap, WebGL fallback) are kept as they are — they are good.
+The rendering, maze generation, BFS pathfinding and the existing guards (`prefers-reduced-motion`,
+tab-visibility pause, IntersectionObserver pause, pixel-ratio cap, WebGL fallback) are unchanged.
+The planned `destroy` was left out: the audience window keeps one maze for as long as it is open.
 
-Once refactored, this row stops tracking upstream and the file becomes ours to maintain.
+This file no longer tracks upstream; it is ours to maintain.
 
 ## Not vendored here
 
