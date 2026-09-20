@@ -9,13 +9,15 @@ branch itself, then dispatches the next. It does not execute plan tasks itself.
 
 ---
 
-## ⚠ READ THIS FIRST — state at the last context clear, 2026-09-19 22:25
+## ⚠ READ THIS FIRST — is a dispatch already in flight?
 
-**Plan 3's agent was RUNNING when the context was cleared. Do not dispatch anything onto
-`.worktrees/engine` until you have proven it is finished.** A `/clear` does not stop a running
-subagent. This already happened once today: the session was cleared while plan 1's agent was alive,
-it kept committing, and the resumed session found the tracker four commits stale and came close to
-dispatching a second agent onto the same worktree — which is how Task 10 was lost the first time.
+**Plan 3 is finished and verified (2026-09-19 22:45). Nothing is in flight as of that time.** The
+runbook below stays because this has now bitten twice, and the next dispatch can hit it again.
+
+**Never dispatch onto `.worktrees/engine` until you have proven no agent is running there.** A
+`/clear` does not stop a running subagent. Twice today a session was cleared while its agent was
+alive: the agent kept committing, and the resumed session found the tracker several commits stale.
+The first time, that is how Task 10 was lost.
 
 **How to tell, before doing anything else.** Poll for about two minutes:
 
@@ -60,15 +62,19 @@ Two traps that cost ~10 tool calls to see through:
 window never dispatched. That is expected — hand-backs survive a clear. Treat it as a claim and
 check the branch anyway.
 
-**Where plan 3 was at the clear:** 8 commits past `905a38a`, newest `060e54b` *"Add npm run screens:
-every designed state at 1080p, checked against the UI spec"*, with `test/browser/screens.js`
-modified and uncommitted. Nothing in plans 1 and 2 is at risk — both are verified and committed.
-**Last commit verified by the orchestrator: `905a38a`.** Everything after it is plan 3's and still
-unchecked.
+**Last commit verified by the orchestrator: `1994bee`.** Plans 1, 2 and 3 are all verified and
+committed; nothing on the branch is unchecked.
 
-**Then, in order:** verify plan 3 → tick its row → dispatch **plan 4 (SETUP)**, which must supply
-`canConnect` from the lock state or the `refused` verdict stays unreachable → dispatch **plan 5**,
-carrying its authorized port deviation → `finishing-a-development-branch`.
+**Next, in order:** dispatch **plan 4 (SETUP)** → dispatch **plan 5**, carrying its authorized port
+deviation → `finishing-a-development-branch`. Plan 4 no longer needs a `canConnect` instruction: the
+plan already threads it from the Web Lock claim itself (its decision row 6, and Task 5 Step 3's
+`mat.canConnect = () => holdsOperator()`), which closes plan 2's dead-wiring defect.
+
+**⚠ Two by-eye checks in plan 3 were deliberately not performed** — Task 8 Step 5 and Task 9 Step 7,
+the mockup and motion comparisons through the visual companion. They need the owner and a visible
+browser, and the mockups live in `.superpowers/brainstorm/…` in the *main* checkout, not this
+worktree. **These are the owner's to run and are still open.** Everything measurable about those
+screens is covered by `npm run screens` (125 checks).
 
 ---
 
@@ -90,8 +96,8 @@ agent with checkpoints. Owner's call, 2026-09-19: it saves both wall-clock time 
 | Worktree | `/home/noob_master/cube-tournament-display/.worktrees/engine` |
 | Branch | `engine` — **carries all five plans**, merged back to `main` only at the very end |
 | Node | v24.11.1 (plans need ≥ 24.2) |
-| Suite | `npm test` → **pass 173, fail 0, skipped 0**; `npm run smoke` → **34/34, six runs out of six** |
-| Last commit | `905a38a` Let the operator window open before the font arrives |
+| Suite | `npm test` → **pass 205, fail 0, skipped 0**; `npm run smoke` → **35/35, six runs out of six**; `npm run screens` → **125/125** |
+| Last commit | `1994bee` Let the smoke test's polls see a window that has not loaded yet |
 | Required symlink | `.worktrees/ctf-interuniversitario` → `/home/noob_master/ctf-interuniversitario` — **present**; without it the engine's `config/event.json` test silently *skips* instead of failing |
 | `main` merged in | yes, 2026-09-19 — the branch now has the SETUP, NO SIGNAL and RESULTS specs and plans |
 
@@ -108,10 +114,11 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
   All 8 tasks committed, `ccf3b33`..`4ac4795`. `npm test` → 173 / 0 / 0, exactly the count the
   amended Conventions derived; `signal-health.test.js` is 17. The unrun `waiting` amendment executed
   correctly on its first run with no edits. Smoke reaches 34/34 — but see **Blocker** below.
-- [ ] **3 · Audience screens** — `docs/superpowers/plans/2026-09-18-audience-screens.md` (needs 1)
-  - 10 tasks, screens 1–5. Creates `js/ui/audience-screens.js`, `js/ui/audience.js`,
-    `css/tokens.css`, `css/audience.css` and the browser harness that plan 5 extends.
-  - Needs Chrome for `npm run smoke` and `npm run screens`, and internet for the Adobe Fonts kit.
+- [x] **3 · Audience screens** — `docs/superpowers/plans/2026-09-18-audience-screens.md` — **DONE
+  2026-09-19.** All 10 tasks committed plus one self-caught fix, `314614c`..`1994bee`. Verified by
+  the orchestrator: `npm test` → 205 / 0 / 0, `npm run smoke` → 35/35 exit 0 on **six** serial runs,
+  tree clean, all 11 commits carry both trailers, `vendor/stackmat.js` byte-identical.
+  **Two by-eye checks remain open for the owner** — see the header.
 - [ ] **4 · SETUP** — `docs/superpowers/plans/2026-09-19-setup.md` (needs 1 and 2)
   - 7 tasks, screen 9. Its Task 1 verifies the engine and signal-check groundwork before touching
     anything.
@@ -132,8 +139,10 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
     written; Tasks 2, 3, 5 and 9–12 are transcriptions. The plan says which is which.
 - [ ] **6 · Finish the branch** — `finishing-a-development-branch`, merging `engine` into `main`.
 
-**Two plans edit `ROADMAP.md`:** engine Task 18 and results Task 13. Whichever runs second must read
-the file rather than assume it. The results plan already carries that warning.
+**Three plans edit `ROADMAP.md`:** engine Task 18, audience-screens Task 10 (done — it appended a
+paragraph after the Phase-1 summary) and results Task 13, which runs last. **Task 13 must read the
+file rather than assume it**; the results plan carries that warning, and there is now one more
+edit in place than when it was written.
 
 ---
 
@@ -195,6 +204,46 @@ Chrome throttles hidden tabs and the mock mat stops ticking without them.
   Space); adding `f` for RESULTS is that plan's work.
 - `latestResult(event, table)` and `audienceStandings(table, 8)` are ready in `js/core/scoring.js`.
 
+## Carry-forward from the audience-screens dispatch (2026-09-19)
+
+Reported by plan 3's agent and verified against the branch. **The first item breaks any plan that
+still reads the audience debug view.**
+
+- **⚠ The audience debug view is gone.** `js/ui/audience-debug-view.js` is deleted; `#snapshot`,
+  `#clock` and `#cube` no longer exist. Read the audience through `#stage`'s `data-screen`
+  (`waiting|attract|resultado|mezcla|armed|running|pending`), `.solo .digits`, `.solo .status`,
+  `.side .row:not(.empty)`, `.net svg`, `.scr`. **The operator window keeps its debug view**, so the
+  *Carry-forward* note above about `smoke.js` asserting on debug views now applies to the operator
+  side only.
+- **`test/browser/harness.js` is the shared seam**, exporting `sleep`, `waitFor` and
+  `startHarness(debugPort)`. `startHarness` returns `{ base, openTab, check, finish }`; `openTab`
+  returns `{ send, errors, close, closeTab, evaluate, press, screenshot }`. `evaluate` sets
+  `awaitPromise: true`, so a check can await a promise. **Use `waitFor`, not fixed sleeps, for
+  readiness** — but a predicate must never *throw* on a not-yet-loaded window. That bug cost plan 3
+  an extra commit (`1994bee`): `text()` returned `undefined` before `document.body` existed and the
+  predicate threw instead of returning false. `text()` in `smoke.js` is the null-safe pattern to copy.
+- **`KEYS` in the harness holds `' ' n d u r s Escape`.** Any new named key — plan 5's `f`, and the
+  arrows — **needs its entry added there**, and named keys must not be sent with `text`.
+- **Ports: smoke 9333, screens 9334.** Give any new script its own port, never run two copies of one
+  script at once, and sweep `/tmp/ctd-chrome-*` (a run that throws before `finish()` leaves its
+  profile behind). Plan 5's authorized deviation replaces this with a port chosen at launch.
+- **The swap seam for new screens** is `screenFor()` in `js/ui/audience-screens.js`, plus `FAMILY` /
+  `familyOf` for whether a change animates; `changeBetween(from, to)` returns `'screen' |
+  'standings' | null`. NO SIGNAL is screen 7 and needs a **new branch**, not an edit to screens 1–5.
+- **`css/tokens.css` is new and shared**, separate from `css/audience.css`. `--stage-w` exists
+  because view-transition pseudo-elements have no container, so `cqw` cannot reach them — a new
+  pseudo-element keyframe needs `--stage-w`, not `cqw`.
+- **Motion contract:** every element with an identity carries an inline `view-transition-name`;
+  `screens.js` records `window.changes` / `window.transitions` and `show()` awaits each transition,
+  so a new screen's checks can assert what moves. `moves()` and `cuts()` helpers exist.
+- **`js/ui/audience.js` keeps exactly two pieces of non-event state** (its decision 14): the scene on
+  screen, and when the verdict began. Do not add more — a reloaded window must show the current
+  snapshot, landed.
+- `package.json` gained `screens`; `.gitignore` gained `test/browser/out/`.
+- **Plan-count drift to expect:** plan 3's absolute test counts were stale by +38 (they assumed the
+  engine baseline before plan 2 added 38 tests) while every *delta* was exact. **Plans 4 and 5 will
+  have the same offset** — trust their deltas, derive the absolute from 205.
+
 ---
 
 ## ✅ Resolved — the smoke gate was flaky since plan 2; fixed in `905a38a`
@@ -251,6 +300,11 @@ was spotted. No plan fixes it — it is a candidate for the parked list.
 **The standard of proof this chain now uses for the browser gate: three serial runs, identical.**
 One green run proved nothing here — the very first investigation had a run pass 34/34 between two
 that failed.
+
+**"Identical" means the check list, not the bytes.** One PASS label embeds the randomly generated
+scramble (`N calls the first university, with a scramble (…)`), so it differs every run by design.
+Compare the PASS/FAIL *names* and counts; an md5 of the raw output will never match and will send
+you hunting a flake that is not there. It did exactly that on 2026-09-19.
 
 **The port collision is wider than this repo.** `~/.claude/skills/design-recon/scripts/
 launch-cobrowse.sh` defaulted to **the same port 9333**, and before starting it runs
@@ -345,6 +399,26 @@ uncommitted: two agents, one worktree.
 
 _Filled in as each plan lands._
 
+- **2026-09-19 — Audience screens, Tasks 1–10. Plan 3 complete.** Verified here, not just claimed:
+  205 / 0 / 0, `npm run smoke` 35/35 exit 0 on six serial runs, tree clean, eleven commits each with
+  both trailers, `vendor/stackmat.js` byte-identical by SHA, nothing under `docs/superpowers/`
+  touched. The `vendor/hero-maze3d.js` edits are Task 3's declared work, not a violation of the
+  never-edit-vendor rule, which names `stackmat.js` only.
+  **Eleven commits for ten tasks, and the extra one is the good news:** running its own three-run
+  proof, the agent's smoke run 2 failed, and it diagnosed the cause as a bug *it* had introduced —
+  its new `waitFor` poll fired earlier than the fixed sleep it replaced, so `text()` returned
+  `undefined` and the predicate threw. It fixed the root cause rather than the assertion. It also
+  refused to paste Task 6's `smoke.js` verbatim because that transcription predates plan 2 and would
+  have **silently deleted plan 2's eleven SIGNAL CHECK browser checks** — the single most valuable
+  catch of this dispatch, and the clearest evidence that "the code in each step is final" needs the
+  escape hatch the dispatch recipe gives it.
+  Four plan defects reported, all confirmed plausible: the stale `smoke.js` block, two SIGNAL CHECK
+  uses of a `snapshot` helper Task 7 deletes, stale absolute test counts, and a drifted README
+  anchor. **Two Steps were deliberately not done** — the by-eye mockup and motion comparisons, which
+  need the owner and a visible browser; they are open, in the header.
+  One orchestration note: this agent survived a `/clear` and was found alive only by checking its own
+  transcript under `<session-id>/subagents/`; the worktree poll alone read as an orphan for three
+  minutes while it sat waiting on a debug port.
 - **2026-09-19 — Signal check, Tasks 1–8. Plan 2 complete.** Verified here: 173 / 0 / 0, tree clean,
   eight commits each with both trailers, `vendor/` and `docs/` untouched. The agent made **one
   deviation and it was correct**: the plan's Task 7 adds `Escape` to the smoke harness's `KEYS` table
