@@ -9,6 +9,44 @@ branch itself, then dispatches the next. It does not execute plan tasks itself.
 
 ---
 
+## ⚠ READ THIS FIRST — state at the last context clear, 2026-09-19 22:25
+
+**Plan 3's agent was RUNNING when the context was cleared. Do not dispatch anything onto
+`.worktrees/engine` until you have proven it is finished.** A `/clear` does not stop a running
+subagent. This already happened once today: the session was cleared while plan 1's agent was alive,
+it kept committing, and the resumed session found the tracker four commits stale and came close to
+dispatching a second agent onto the same worktree — which is how Task 10 was lost the first time.
+
+**How to tell, before doing anything else.** Poll for about two minutes:
+
+```sh
+cd /home/noob_master/cube-tournament-display
+for i in 1 2 3 4 5 6; do git -C .worktrees/engine log -1 --format=%h; \
+  git -C .worktrees/engine status --porcelain | wc -l; sleep 20; done
+```
+
+- HEAD advancing, or untracked files accumulating → **a live agent. Wait for it.**
+- HEAD frozen *and* files left untracked → an orphan died mid-task. Read those files against the
+  plan's literal code before deleting anything; last time they were byte-identical and only needed
+  committing.
+- HEAD frozen, tree clean → it finished. Run the **Orchestrator's checklist** below.
+
+**Its report may still arrive** as a subagent hand-back in the fresh window, from an agent that
+window never dispatched. That is expected — hand-backs survive a clear. Treat it as a claim and
+check the branch anyway.
+
+**Where plan 3 was at the clear:** 8 commits past `905a38a`, newest `060e54b` *"Add npm run screens:
+every designed state at 1080p, checked against the UI spec"*, with `test/browser/screens.js`
+modified and uncommitted. Nothing in plans 1 and 2 is at risk — both are verified and committed.
+**Last commit verified by the orchestrator: `905a38a`.** Everything after it is plan 3's and still
+unchecked.
+
+**Then, in order:** verify plan 3 → tick its row → dispatch **plan 4 (SETUP)**, which must supply
+`canConnect` from the lock state or the `refused` verdict stays unreachable → dispatch **plan 5**,
+carrying its authorized port deviation → `finishing-a-development-branch`.
+
+---
+
 ## The decision that shaped this file
 
 The first engine dispatch used **`subagent-driven-development`**: a fresh subagent per task plus two
