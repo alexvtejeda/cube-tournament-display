@@ -11,8 +11,12 @@ branch itself, then dispatches the next. It does not execute plan tasks itself.
 
 ## ⚠ READ THIS FIRST — is a dispatch already in flight?
 
-**Plan 3 is finished and verified (2026-09-19 22:45). Nothing is in flight as of that time.** The
-runbook below stays because this has now bitten twice, and the next dispatch can hit it again.
+**⚠ PLAN 4 (SETUP) WAS DISPATCHED 2026-09-19 22:50 AND IS RUNNING NOW.** Do not dispatch anything
+onto `.worktrees/engine` until you have proven it is finished — use the check below. Plan 3 is
+finished and verified; plan 4's commits start after `1994bee` and are **unchecked** until the
+orchestrator runs the checklist on them.
+
+The runbook below stays because this has now bitten twice, and the next dispatch can hit it again.
 
 **Never dispatch onto `.worktrees/engine` until you have proven no agent is running there.** A
 `/clear` does not stop a running subagent. Twice today a session was cleared while its agent was
