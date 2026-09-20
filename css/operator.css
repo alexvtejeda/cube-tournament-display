@@ -257,3 +257,57 @@
 
 /* prefers-reduced-motion needs no rule here: this screen has no motion, and the waveform keeps
    redrawing because it is a reading, not an animation (spec §2.3). */
+
+/* ── Screen 9: SETUP ─────────────────────────────────────────────────────── */
+
+.su-lower { flex: 1; display: grid; grid-template-columns: 1.25fr 1fr; min-height: 0; }
+.su-lower > section {
+  padding: 24px var(--o-gutter);
+  display: flex; flex-direction: column; gap: 18px; min-height: 0;
+}
+.su-lower > section + section { border-left: 1px solid var(--o-divider); }
+
+.su-event { border: 1px solid var(--o-divider); border-radius: var(--o-radius); padding: 18px 20px; }
+.su-event-headline { font-size: var(--o-fs-num); font-weight: 800; margin-top: 6px; }
+.su-event-detail { color: var(--o-violet); margin-top: 6px; }
+/* Nothing saved: the same vocabulary as an untested item, for the same reason */
+.su-event.empty { border-style: dashed; border-color: var(--o-unknown); color: var(--o-unknown); }
+/* A log that exists but cannot be read. The one state where this block reports a problem, so it
+   takes the window's one meaning for red (spec §2.1, §4.5). */
+.su-event.corrupt { border-color: var(--o-red); }
+.su-event.corrupt .su-event-headline { color: var(--o-red); }
+
+/* The actions sit at the bottom of the left column, furthest from nothing and closest to the
+   decision. `margin-top: auto` is what pins them there as the block above changes height. */
+.su-actions { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
+
+.su-btn {
+  display: block; width: 100%; text-align: center;
+  padding: 16px 18px; border-radius: var(--o-radius);
+  font: inherit; font-size: var(--o-fs-lead); font-weight: 800; letter-spacing: .02em;
+  border: 1px solid #fff; background: #fff; color: var(--o-bg); cursor: pointer;
+}
+.su-btn[disabled] {
+  background: transparent; color: var(--o-unknown);
+  border: 1.5px dashed var(--o-unknown); cursor: default;
+}
+.su-why { color: var(--o-unknown); font-size: 14px; margin-top: 8px; text-align: center; }
+
+/* The typed confirm replaces the button in place: no modal, and clicking elsewhere cancels. */
+.su-confirm { display: flex; flex-direction: column; gap: 10px; }
+.su-confirm-text { color: var(--o-violet); font-size: var(--o-fs-body); }
+.su-confirm input {
+  font: inherit; font-size: var(--o-fs-lead); font-variant-numeric: tabular-nums;
+  padding: 12px 14px; border-radius: var(--o-radius);
+  border: 1px solid var(--o-divider); background: transparent; color: #fff;
+}
+.su-confirm input:focus { outline: none; border-color: #fff; }
+
+/* Conectar sits where MICRÓFONO's reading would be (spec §3.8, §4.9). */
+.su-connect {
+  margin-top: 8px; padding: 9px 18px; border-radius: var(--o-radius);
+  font: inherit; font-size: var(--o-fs-body); font-weight: 800;
+  border: 1px solid #fff; background: #fff; color: var(--o-bg); cursor: pointer;
+}
+
+.su-note { color: var(--o-violet); font-size: var(--o-fs-body); margin-top: 10px; }
