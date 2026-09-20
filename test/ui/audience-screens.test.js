@@ -4,8 +4,8 @@ import { createState, reduce } from '../../js/core/run-state.js';
 import { buildSnapshot } from '../../js/core/snapshot.js';
 import { packet } from '../../js/drivers/scenarios.js';
 import {
-  FRAME_HTML, attractFooter, attractHtml, changeBetween, countHtml, escapeHtml, familyOf, mazeFrozen, sceneOf,
-  scrambleHtml, screenFor, soloWhoHtml, standbyHtml,
+  FRAME_HTML, RESULTS_FRAME_HTML, attractFooter, attractHtml, changeBetween, countHtml, escapeHtml, familyOf,
+  mazeFrozen, resultsHtml, sceneOf, scrambleHtml, screenFor, soloWhoHtml, standbyHtml,
 } from '../../js/ui/audience-screens.js';
 import { attempt, dnf, makeConfig } from '../helpers/fixtures.js';
 import { apply, cmd, mat } from '../helpers/actions.js';
@@ -237,4 +237,89 @@ test('ATTRACT names its face and tagline, for the bridge out', () => {
   assert.ok(html.includes('view-transition-name:attract-face'));
   assert.ok(html.includes('view-transition-name:attract-tag'));
   assert.ok(html.includes('data-slot="footer"'), 'the footer is a slot, so its words change in place');
+});
+
+// --- The closing board (UI spec §8.3, §8.6) ---
+
+const TEAMS = [
+  { id: 'intec', university: 'INTEC', participant: 'José Martínez' },
+  { id: 'itla', university: 'ITLA', participant: 'Ana Pérez' },
+  { id: 'pucmm', university: 'PUCMM', participant: null },
+  { id: 'uapa', university: 'UAPA', participant: null },
+  { id: 'unibe', university: 'UNIBE', participant: null },
+];
+
+const row = (teamId, group, position, bestMs) => ({ teamId, group, position, bestMs });
+
+const finalBoard = () => ({
+  teams: TEAMS,
+  finalStandings: [
+    row('intec', 'ranked', 1, 84020),
+    row('itla', 'ranked', 2, 104180),
+    row('pucmm', 'ranked', 3, 115880),
+    row('uapa', 'unranked', null, null),
+    row('unibe', 'pending', null, null),
+  ],
+});
+
+test('the podium reads 2nd, 1st, 3rd, and the rest go to the grid', () => {
+  const html = resultsHtml(finalBoard());
+  const podium = html.slice(html.indexOf('class="podium"'), html.indexOf('class="grid"'));
+  assert.deepEqual([...podium.matchAll(/data-team="([a-z]+)"/g)].map((m) => m[1]), ['itla', 'intec', 'pucmm']);
+  const grid = html.slice(html.indexOf('class="grid"'));
+  assert.deepEqual([...grid.matchAll(/data-team="([a-z]+)"/g)].map((m) => m[1]), ['uapa', 'unibe']);
+});
+
+test('every university appears exactly once, and every plate is named', () => {
+  const html = resultsHtml(finalBoard());
+  for (const team of TEAMS) {
+    assert.equal(html.split(`data-team="${team.id}"`).length - 1, 1, `${team.id} appears once`);
+    assert.ok(html.includes(`view-transition-name:plate-${team.id}`), `${team.id}'s plate is named`);
+  }
+});
+
+test('the podium labels the three places, and only a ranked one', () => {
+  const html = resultsHtml(finalBoard());
+  assert.ok(html.includes('PRIMER LUGAR'));
+  assert.ok(html.includes('SEGUNDO LUGAR'));
+  assert.ok(html.includes('TERCER LUGAR'));
+});
+
+test('an unranked podium row shows no label and no place', () => {
+  const board = finalBoard();
+  board.finalStandings = [
+    row('intec', 'unranked', null, null),
+    row('itla', 'pending', null, null),
+    row('pucmm', 'pending', null, null),
+    row('uapa', 'pending', null, null),
+    row('unibe', 'pending', null, null),
+  ];
+  const html = resultsHtml(board);
+  assert.ok(!html.includes('PRIMER LUGAR'));
+  assert.ok(html.includes('—'), 'competed, no valid time');
+  assert.ok(html.includes('NO PARTICIPÓ'), 'never competed');
+});
+
+test('a dash means competed with no valid time, and NO PARTICIPÓ means never competed', () => {
+  const html = resultsHtml(finalBoard());
+  const cell = (id) => {
+    const start = html.indexOf(`data-team="${id}"`);
+    return html.slice(start, html.indexOf('</div></div>', start));
+  };
+  assert.ok(cell('uapa').includes('—'));
+  assert.ok(!cell('uapa').includes('NO PARTICIPÓ'));
+  assert.ok(cell('unibe').includes('NO PARTICIPÓ'));
+});
+
+test('the winner carries the kitty, and nobody else does', () => {
+  const html = resultsHtml(finalBoard());
+  assert.equal(html.split('class="kit"').length - 1, 1);
+  assert.ok(html.indexOf('class="kit"') < html.indexOf('data-team="intec"'), 'inside the first step');
+  assert.ok(html.includes('rootkitty-from-above.png'));
+});
+
+test('RESULTS has no band, which is what lets the band rise again on the way out', () => {
+  assert.ok(!RESULTS_FRAME_HTML.includes('class="band"'));
+  assert.ok(RESULTS_FRAME_HTML.includes('RESULTADOS FINALES'));
+  assert.ok(RESULTS_FRAME_HTML.includes('view-transition-name:logo'));
 });

@@ -73,12 +73,12 @@ const RULE = `<i class="rule"${vt('rule')}></i>`;
 const nameLine = (team) =>
   (team.participant ? `<div class="name"><span class="piece"${vt(`name-${team.id}`)}>${escapeHtml(team.participant)}</span></div>` : '');
 
-// ATTRACT (§3). The plates follow the roster, the same order as the turns. None of them is named:
-// js/ui/audience.js names the called university's plate just before ATTRACT leaves (§2.7).
 // What ATTRACT is waiting for: the start of the event, or the board that ends it (§8.6). Each
 // string lives in one place, as PENDING's do (§2.6, §7.3).
 export const attractFooter = ({ phase }) => (phase === 'RESULTS' ? 'Resultados finales' : 'Comenzamos en breve');
 
+// ATTRACT (§3). The plates follow the roster, the same order as the turns. None of them is named:
+// js/ui/audience.js names the called university's plate just before ATTRACT leaves (§2.7).
 // The face and the tagline are named so they can fade on their own over --t-step on the way to
 // RESULTS, while the plates move over --t-long (§2.7, §8.2). The footer is a slot, so changing its
 // words does not rewrite the grid and re-request thirteen logos (§8.10).
@@ -181,4 +181,47 @@ export function soloWhoHtml({ competitor, attemptNo, attemptsPerCompetitor, team
     + `<div><span class="piece"${vt('attempt-word')}>INTENTO</span> <b class="piece"${vt('attempt-n')}>${attempt}</b>`
     + ` <span class="piece"${vt('attempt-of')}>DE ${attemptsPerCompetitor}</span></div>`
     + `${nameLine(team)}</div>`;
+}
+
+// RESULTS (§8.3). There is no band: thirteen places do not fit above one, and the event has no next
+// scramble. Its absence is also what makes the band rise again on the way to Mezcla or PENDING
+// (§2.7).
+export const RESULTS_FRAME_HTML = `<div class="frame noband">
+  <header class="hdr"><img src="assets/logo-ctf.svg" alt="CTF Interuniversitario 2026"${vt('logo')}><span>RESULTADOS FINALES</span></header>
+  <div class="body" data-slot="body"></div>
+</div>`;
+
+const LUGAR = ['PRIMER LUGAR', 'SEGUNDO LUGAR', 'TERCER LUGAR'];
+
+// What goes where the time goes (§8.6). A dash always means "competed, no valid time", so a
+// university that never competed gets words instead (§2.6, locked decision 4).
+const boardTime = (row) => (row.group === 'pending' ? 'NO PARTICIPÓ' : row.bestMs === null ? '—' : formatMs(row.bestMs));
+
+// A podium step. An unranked winner gets no label and no gold, and the time reads as in the grid
+// (§8.10). The kitty rides the first step, in front of the plate and clipped to it (§8.4).
+function podiumStep(row, team, place) {
+  const kit = place === 1
+    ? '<div class="kit"><img src="assets/rootkitty-from-above.png" alt=""></div>'
+    : '';
+  const label = row.group === 'ranked' ? `<div class="label">${LUGAR[place - 1]}</div>` : '';
+  return `<div class="step p${place}">${kit}${plate(team)}${label}<div class="time">${boardTime(row)}</div></div>`;
+}
+
+// A grid cell, places 4 to 13. No place number for a university that is not ranked (§8.6).
+const gridCell = (row, team) =>
+  `<div class="cell">${plate(team)}<div class="line">`
+  + `<span class="place">${row.position ?? ''}</span>`
+  + `<span class="time${row.group === 'pending' ? ' never' : ''}">${boardTime(row)}</span>`
+  + `</div></div>`;
+
+// The board (§8.3). finalStandings is already in its order: ranked, then all-DNF, then never
+// competed (§4.3). Rows 1–3 are the podium and the rest is the grid; the layout is built for
+// thirteen, as ATTRACT's is.
+export function resultsHtml({ finalStandings, teams }) {
+  const of = (id) => teams.find((t) => t.id === id);
+  const [first, second, third] = finalStandings;
+  return `<div class="results">
+  <div class="podium">${podiumStep(second, of(second.teamId), 2)}${podiumStep(first, of(first.teamId), 1)}${podiumStep(third, of(third.teamId), 3)}</div>
+  <div class="grid">${finalStandings.slice(3).map((r) => gridCell(r, of(r.teamId))).join('')}</div>
+</div>`;
 }
