@@ -19,6 +19,8 @@ event needs.
 - Runs a fixed competition format: **N teams × 3 attempts, best of 3**, with a configurable cutoff
 - Generates WCA-legal random-state 3x3x3 scrambles and a cube preview per attempt
 - Shows a clean audience view on a projector and keeps the controls on a second window
+- Diagnoses the mat before the event, and mid-event, on the operator's screen alone: it either
+  shows packets arriving or names the link that is broken, and ticks off a six-item test of the mat
 - Survives a browser crash mid-event — every accepted result is written to disk as it happens
 
 ## Why it exists
