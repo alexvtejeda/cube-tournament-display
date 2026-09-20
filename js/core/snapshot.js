@@ -9,12 +9,19 @@ export const VERDICT_MS = 3000;
 // When the standings update after a verdict: once the screen change (--t-long, 800 ms) and a pause
 // (--t-step, 400 ms) have run. The two numbers are the motion tokens of UI spec §2.2.
 export const STANDINGS_UPDATE_MS = VERDICT_MS + 800 + 400;
+// The bridge through ATTRACT after F: the screen change into it (--t-long, 800 ms) and the hold
+// (two --t-long, 1600 ms), UI spec §8.2. The same motion tokens again.
+export const RESULTS_INTRO_MS = 800 + 1600;
 
-export function buildSnapshot(state, now) {
+// `matSilent` comes from the operator window, which owns the microphone and the packet clock: the
+// core has neither (UI spec §10.6). It defaults to false so every existing caller and test is
+// unaffected, and so a window that never measures shows no takeover rather than a permanent one.
+export function buildSnapshot(state, now, { matSilent = false } = {}) {
   const { event, phase } = state;
   const { config } = event;
   const table = standings(event);
-  const competitor = phase === 'STANDBY' ? null : config.teams[state.teamIndex];
+  // RESULTS has no competitor, for the same reason STANDBY has none: nobody is up (UI spec §8.8).
+  const competitor = phase === 'STANDBY' || phase === 'RESULTS' ? null : config.teams[state.teamIndex];
   return {
     phase,
     teams: config.teams, // the roster in order, for ATTRACT's plates and the standings names
@@ -34,6 +41,12 @@ export function buildSnapshot(state, now) {
     hands: state.signalOn ? handsFromHeader(state.mat?.signalHeader) : 'up',
     verdict: verdictAt(state.lastDecision, now),
     standingsBefore: standingsBefore(state, now),
+    // The full table — ranked, then all-DNF, then never competed — for the closing board. The
+    // capped `standings` above is unchanged (UI spec §4.3, §8.8).
+    finalStandings: phase === 'RESULTS' ? table : null,
+    // The bridge through ATTRACT, from F to the board (UI spec §8.2).
+    resultsIntro: phase === 'RESULTS' && now - state.resultsAt < RESULTS_INTRO_MS,
+    matSilent,
   };
 }
 

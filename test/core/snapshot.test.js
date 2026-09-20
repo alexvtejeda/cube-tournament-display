@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, reduce } from '../../js/core/run-state.js';
-import { STANDINGS_UPDATE_MS, VERDICT_MS, buildSnapshot } from '../../js/core/snapshot.js';
+import { RESULTS_INTRO_MS, STANDINGS_UPDATE_MS, VERDICT_MS, buildSnapshot } from '../../js/core/snapshot.js';
 import { packet } from '../../js/drivers/scenarios.js';
 import { attempt, dnf, makeConfig } from '../helpers/fixtures.js';
 import { apply, cmd, mat } from '../helpers/actions.js';
@@ -94,4 +94,64 @@ test('a redo shows a verdict but has no standings to update', () => {
   const redone = reduce(pending(createState(config), 12470), cmd('redo', 1000));
   assert.equal(buildSnapshot(redone, 1000).verdict.kind, 'REDO');
   assert.equal(buildSnapshot(redone, 1000).standingsBefore, null);
+});
+
+// --- RESULTS and NO SIGNAL (UI spec §8.8, §10.6) ---
+
+function boardConfig() {
+  return {
+    teams: [
+      { id: 'intec', university: 'INTEC', participant: 'José Martínez' },
+      { id: 'itla', university: 'ITLA', participant: 'Ana Pérez' },
+      { id: 'pucmm', university: 'PUCMM', participant: null },
+    ],
+    attemptsPerCompetitor: 3,
+    cutoffMs: 300000,
+  };
+}
+
+const finished = () => [
+  { teamId: 'intec', attempt: 1, ms: 84020, penalty: null, status: 'OK', scramble: 'R U', inspectionMs: null, at: 10 },
+  { teamId: 'itla', attempt: 1, ms: 115880, penalty: null, status: 'OK', scramble: 'R U', inspectionMs: null, at: 20 },
+];
+
+const board = (extra = {}) => ({ ...createState(boardConfig(), finished()), phase: 'RESULTS', resultsAt: 7000, ...extra });
+
+test('finalStandings holds every university in RESULTS, and is null elsewhere', () => {
+  const snapshot = buildSnapshot(board(), 20000);
+  assert.equal(snapshot.finalStandings.length, 3);
+  assert.deepEqual(snapshot.finalStandings.map((r) => r.teamId), ['intec', 'itla', 'pucmm']);
+  assert.deepEqual(snapshot.finalStandings.map((r) => r.group), ['ranked', 'ranked', 'pending']);
+  assert.equal(buildSnapshot(createState(boardConfig(), finished()), 20000).finalStandings, null);
+});
+
+test('the capped standings are unchanged by RESULTS', () => {
+  const snapshot = buildSnapshot(board(), 20000);
+  assert.deepEqual(snapshot.standings.map((r) => r.teamId), ['intec', 'itla']);
+});
+
+test('competitor is null in RESULTS', () => {
+  assert.equal(buildSnapshot(board({ teamIndex: 1 }), 20000).competitor, null);
+  assert.equal(buildSnapshot(board({ teamIndex: 1 }), 20000).attemptNo, null);
+  assert.equal(buildSnapshot(board({ teamIndex: 1 }), 20000).scramble, null);
+});
+
+test('resultsIntro is true until RESULTS_INTRO_MS has passed, and false after', () => {
+  assert.equal(buildSnapshot(board(), 7000 + RESULTS_INTRO_MS - 1).resultsIntro, true);
+  assert.equal(buildSnapshot(board(), 7000 + RESULTS_INTRO_MS).resultsIntro, false);
+  assert.equal(RESULTS_INTRO_MS, 2400);
+});
+
+test('resultsIntro is false in every other phase', () => {
+  assert.equal(buildSnapshot(createState(boardConfig(), finished()), 20000).resultsIntro, false);
+});
+
+test('matSilent defaults to false and is carried through when given', () => {
+  assert.equal(buildSnapshot(board(), 20000).matSilent, false);
+  assert.equal(buildSnapshot(board(), 20000, { matSilent: true }).matSilent, true);
+});
+
+test('a RESULTS snapshot still survives structuredClone', () => {
+  const snapshot = buildSnapshot(board(), 20000, { matSilent: true });
+  assert.deepEqual(structuredClone(snapshot), snapshot);
 });
