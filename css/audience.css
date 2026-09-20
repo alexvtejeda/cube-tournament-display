@@ -16,7 +16,14 @@ img { display: block; }
   width: var(--stage-w);
   aspect-ratio: 16 / 9;
   container-type: size;
-  overflow: hidden;
+  /* The header's rule and the band reach past the stage into the pillarbox, so the stage cannot clip
+     across. It still clips down: `overflow-y: clip` is what holds the band's rise and the kitty's
+     climb inside the 16:9 box, and on a window taller than 16:9 it keeps the letterbox clean. The
+     pair stays as written because neither value forces the other to `auto`/`hidden`, which is why
+     this is two longhands and not `overflow: visible`. `overflow-clip-margin` is not an option:
+     Chrome takes no `calc()` there, so `var(--gutter)` would silently compute to 0 and still clip. */
+  overflow-x: visible;
+  overflow-y: clip;
   color: #fff;
   font-family: var(--font);
 }
@@ -111,13 +118,23 @@ img { display: block; }
   display: flex; align-items: center; gap: 2.2cqw;
   padding: 2.2cqw; border-top: 1px solid var(--violet-deep); background: rgba(2,1,12,.72);
 }
+/* Both bars run edge to edge of the window, not of the stage: on a pillarboxed window the rule and
+   the band would otherwise stop short with the maze showing through beside them. The gutter is added
+   to the margin and taken straight back out of the inline padding, so the content box is still the
+   stage's and every cqw above resolves against the 16:9 stage exactly as before. */
+.hdr, .band {
+  margin-inline: calc(-1 * var(--gutter));
+  padding-inline: calc(2.2cqw + var(--gutter));
+}
 .net { width: 8.7cqw; aspect-ratio: 137 / 102; }
 .net svg { display: block; width: 100%; height: 100%; }
 .scr { margin-top: .5cqw; font-size: var(--fs-lead); font-weight: 500; line-height: 1.2; white-space: nowrap; }
 .scr.wait { color: var(--violet); }
 .kitty {
   --kw: 11cqw;
-  position: absolute; z-index: 2; right: 2.2cqw; bottom: calc(var(--kw) * 0.02);
+  /* `right` is measured from the band's padding box, which the bleed pushed out to the window edge,
+     so it carries the gutter too — the same 2.2cqw + gutter the band's own inline padding uses. */
+  position: absolute; z-index: 2; right: calc(2.2cqw + var(--gutter)); bottom: calc(var(--kw) * 0.02);
   width: var(--kw); opacity: .9;
   filter: drop-shadow(0 0 2.4cqw rgba(238,39,55,.3));
 }

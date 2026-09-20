@@ -357,11 +357,19 @@ await sleep(600);
 const wide = await js(`(() => {
   const canvas = document.getElementById('maze').getBoundingClientRect();
   const stage = document.getElementById('stage').getBoundingClientRect();
+  const edges = (selector) => {
+    const r = document.querySelector(selector).getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.right)];
+  };
   return JSON.stringify({
     window: [innerWidth, innerHeight],
     canvas: [Math.round(canvas.width), Math.round(canvas.height)],
     stage: [Math.round(stage.width), Math.round(stage.height)],
     expectedStage: Math.round(Math.min(innerWidth, innerHeight * 16 / 9)),
+    hdr: edges('.hdr'),
+    band: edges('.band'),
+    stageRight: Math.round(stage.right),
+    kittyRight: Math.round(document.querySelector('.kitty').getBoundingClientRect().right),
   });
 })()`).then(JSON.parse);
 check('a window wider than 16:9: the maze fills the window', wide.canvas[0] === wide.window[0] && wide.canvas[1] === wide.window[1],
@@ -369,6 +377,22 @@ check('a window wider than 16:9: the maze fills the window', wide.canvas[0] === 
 check('a window wider than 16:9: the stage is still 16:9, not stretched', wide.stage[0] === wide.expectedStage
   && Math.abs(wide.stage[0] / wide.stage[1] - 16 / 9) < 0.01,
   `stage ${wide.stage.join('\u00d7')}, expected width ${wide.expectedStage}`);
+// The header's rule and the band bleed through the pillarbox to the window's edges, so that neither
+// stops short with the maze showing past it (audience.css). Each is checked together with the stage's
+// own width, for the same reason the maze is: bars that reach the edges over a stage that was widened
+// to get them there is the one fix this must never become. The kitty is the other half \u2014 the bleed
+// moves the band's padding box, and everything inside it, the kitty included, has to stay put.
+const spans = (bar) => bar[0] === 0 && bar[1] === wide.window[0];
+const stageIs16by9 = wide.stage[0] === wide.expectedStage;
+check('a window wider than 16:9: the header\u2019s rule spans the window, over a 16:9 stage',
+  spans(wide.hdr) && stageIs16by9,
+  `header ${wide.hdr.join('\u2013')}, window 0\u2013${wide.window[0]}, stage width ${wide.stage[0]}`);
+check('a window wider than 16:9: the band spans the window, over a 16:9 stage',
+  spans(wide.band) && stageIs16by9,
+  `band ${wide.band.join('\u2013')}, window 0\u2013${wide.window[0]}, stage width ${wide.stage[0]}`);
+check('a window wider than 16:9: the band\u2019s content does not follow it out, the kitty included',
+  Math.abs(wide.stageRight - wide.kittyRight - 2.2 * wide.stage[0] / 100) < 1,
+  `kitty right ${wide.kittyRight}, stage right ${wide.stageRight}`);
 await tab.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
 await sleep(600);
 

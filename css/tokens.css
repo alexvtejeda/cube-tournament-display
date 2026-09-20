@@ -26,6 +26,9 @@
 
   /* The stage's width. View-transition pseudo-elements have no container, so cqw cannot reach them. */
   --stage-w: min(100vw, calc(100vh * 16 / 9));
+  /* One pillarbox: what the window has left over beside the stage. Zero at 16:9 and on a window
+     taller than 16:9, where the stage is already as wide as the window. */
+  --gutter: calc((100vw - var(--stage-w)) / 2);
 
   --font: "roc-grotesk-variable", "roc-grotesk", system-ui, sans-serif;
 }
