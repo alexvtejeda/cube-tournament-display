@@ -2,7 +2,7 @@
 // (system design §3). The competitive logic is the pure core; this file wires it to the browser.
 // `?driver=mock` swaps the mat for the scripted scenarios.
 import { loadConfig } from '../config.js';
-import { claimOperator, createPublisher } from '../core/channel.js';
+import { claimOperator, createPublisher, holdsOperator } from '../core/channel.js';
 import { toCSV, toJSON } from '../core/export.js';
 import { commandForKey } from '../core/keymap.js';
 import { createState, reduce } from '../core/run-state.js';
@@ -13,10 +13,12 @@ import { createRealDriver } from '../drivers/real.js';
 import { SCENARIOS } from '../drivers/scenarios.js';
 import { createScrambler } from '../scrambler.js';
 import { createOperatorView } from './operator-debug-view.js';
+import { createSetup } from './setup.js';
 import { createSignalCheck } from './signal-check.js';
 
 const root = document.getElementById('operator');
 const checkRoot = document.getElementById('signal-check');
+const setupRoot = document.getElementById('setup');
 // Where the chosen input is remembered, beside the store's own key. SETUP (screen 9) reads it too.
 const DEVICE_KEY = 'cube-tournament-display:deviceId';
 const mock = new URLSearchParams(location.search).get('driver') === 'mock';
@@ -29,36 +31,19 @@ async function main() {
     return;
   }
   const config = await loadConfig();
-  run(config, await chooseStart());
+  run(config);
 }
 
-// Resume or start fresh: always asked, never silent (system design §7).
-function chooseStart() {
-  const saved = store.load();
-  if (saved.status === 'none') return Promise.resolve([]);
-  root.textContent = saved.status === 'ok'
-    ? `A saved event has ${saved.attempts.length} recorded attempts. Press R to resume or F to start fresh.`
-    : 'The saved event cannot be read. Press F to start fresh; the unreadable data is kept under an archive key.';
-  return new Promise((resolve) => {
-    function onKey(e) {
-      const key = e.key.toLowerCase();
-      if (key === 'r' && saved.status === 'ok') finish(saved.attempts);
-      if (key === 'f') {
-        store.archive(Date.now());
-        finish([]);
-      }
-    }
-    function finish(attempts) {
-      window.removeEventListener('keydown', onKey);
-      resolve(attempts);
-    }
-    window.addEventListener('keydown', onKey);
-  });
-}
-
-function run(config, attempts) {
-  let state = createState(config, attempts);
-  let requestedSeq = state.scrambleSeq;
+// Resume or start fresh is SETUP's question now, asked on screen 9 (operator spec §4.2).
+function run(config) {
+  // The event does not exist until SETUP hands the window over, so nothing here reads `state`
+  // before then (spec §4.1, §4.12).
+  let state = null;
+  let requestedSeq = 0;
+  // SETUP owns the window until one of its two actions is taken. The check may borrow it and hands
+  // it back to wherever it came from — the same seam, for the same reason (spec §3.1, §4.1, §4.14).
+  let screen = 'setup';
+  let checkFrom = 'setup';
   const publisher = createPublisher();
   const scrambler = createScrambler(new Worker('node_modules/cstimer_module/cstimer_module.js'));
   const driver = mock ? createMockDriver() : createRealDriver();
@@ -69,6 +54,10 @@ function run(config, attempts) {
   let deviceLabel = mock ? 'Mock mat' : null;
   const matFacade = {
     connected: () => connected,
+    // The Web Lock claim is made once, at startup. A window that lost it never takes the
+    // microphone (engine decision 8), so SETUP and SIGNAL CHECK both show it as refused rather
+    // than pending.
+    canConnect: () => holdsOperator(),
     deviceId: () => deviceId,
     deviceLabel: () => deviceLabel,
     listDevices: () => driver.listDevices(),
@@ -85,7 +74,6 @@ function run(config, attempts) {
     sample: (seconds) => new Promise((resolve) => driver.getSample(seconds, resolve)),
   };
   const signalCheck = createSignalCheck({ root: checkRoot, mat: matFacade });
-  let checkOpen = false;
   const view = createOperatorView(root, {
     mock,
     scenarios: Object.keys(SCENARIOS),
@@ -93,6 +81,37 @@ function run(config, attempts) {
     onConnect: (id) => matFacade.connect(id),
     listDevices: () => driver.listDevices(),
   });
+  root.hidden = true; // SETUP is the first screen; the event window is built but not shown
+
+  const setup = createSetup({
+    root: setupRoot,
+    mat: matFacade,
+    store,
+    config, // for the roster size and the university names in the event block
+    mock,
+    onResume: () => enterEvent({ fresh: false }),
+    onFresh: ({ archive }) => enterEvent({ fresh: true, archive }),
+  });
+
+  // `archive` comes from the gate, not from here: keeping a real event's log and dropping a
+  // rehearsal's is a rule, and rules live in the core (spec §4.6). SETUP is left exactly once.
+  function enterEvent({ fresh, archive }) {
+    if (fresh) {
+      if (archive) store.archive(Date.now());
+      else store.clear();
+    }
+    const saved = store.load();
+    state = createState(config, saved.status === 'ok' ? saved.attempts : []);
+    requestedSeq = state.scrambleSeq;
+    screen = 'event';
+    setup.destroy();
+    setupRoot.hidden = true;
+    root.hidden = false;
+    view.setExports(toJSON(state.event, Date.now()), toCSV(state.event));
+    // Reanudar catches a reopened audience window up; fresh publishes an empty event. Either way
+    // this is the first snapshot the room ever sees (spec §4.12).
+    dispatch({ type: 'render' });
+  }
 
   function dispatch(action) {
     const previous = state;
@@ -124,39 +143,64 @@ function run(config, attempts) {
   // The check is a bench, not a view (operator spec §3.1): while it is open the mat reaches
   // neither the reducer nor, therefore, the audience window.
   driver.onState((matState) => {
-    if (checkOpen) {
+    if (screen === 'check') {
       signalCheck.onMat(matState);
+      return;
+    }
+    if (screen === 'setup') {
+      setup.onMatState(matState);
+      setup.render();
       return;
     }
     dispatch({ type: 'mat', state: matState, at: Date.now() });
   });
 
+  // The only entry in §3.1's table with no phase to restore: from SETUP the event does not exist
+  // yet, so S borrows the window and Esc gives it straight back (spec §4.14).
   function openCheck() {
-    // ARMED is the one held screen that draws live mat data — the hands, the light, the inspection
-    // countdown — so it steps back to SCRAMBLE, keeping the scramble, rather than freezing into a
-    // lie on the projector. RESULTS joins this list when that phase exists.
-    const armedAndWaiting = state.phase === 'ARMED' && state.inspectionStartedAt === null;
-    if (!['STANDBY', 'SCRAMBLE'].includes(state.phase) && !armedAndWaiting) return;
-    if (armedAndWaiting) dispatch({ type: 'command', command: 'disarm', at: Date.now() });
-    checkOpen = true;
+    if (screen !== 'setup') {
+      // ARMED is the one held screen that draws live mat data — the hands, the light, the
+      // inspection countdown — so it steps back to SCRAMBLE, keeping the scramble, rather than
+      // freezing into a lie on the projector. RESULTS joins this list when that phase exists.
+      const armedAndWaiting = state.phase === 'ARMED' && state.inspectionStartedAt === null;
+      if (!['STANDBY', 'SCRAMBLE'].includes(state.phase) && !armedAndWaiting) return;
+      if (armedAndWaiting) dispatch({ type: 'command', command: 'disarm', at: Date.now() });
+    }
+    checkFrom = screen;
+    screen = 'check';
     root.hidden = true;
+    setupRoot.hidden = true;
     signalCheck.open();
   }
 
   function closeCheck() {
-    checkOpen = false;
+    screen = checkFrom;
     signalCheck.close();
-    root.hidden = false;
+    if (screen === 'setup') {
+      setupRoot.hidden = false;
+      setup.render();
+    } else {
+      root.hidden = false;
+    }
   }
 
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-    const command = commandForKey(e.key, state.phase);
+    const command = commandForKey(e.key, state === null ? 'STANDBY' : state.phase);
     // While the check is open no key reaches the event: a stray D would record a DNF nobody saw.
-    if (checkOpen) {
+    if (screen === 'check') {
       if (command === 'signalCheck' || e.key === 'Escape') {
         e.preventDefault();
         closeCheck();
+      }
+      return;
+    }
+    // SETUP owns its own keys (Enter, and the confirm's Enter and Esc). S is the only one the
+    // window takes from it, and there is no event for any other key to reach.
+    if (screen === 'setup') {
+      if (command === 'signalCheck') {
+        e.preventDefault();
+        openCheck();
       }
       return;
     }
@@ -173,13 +217,11 @@ function run(config, attempts) {
   // live event.
   if (!mock) {
     window.addEventListener('beforeunload', (e) => {
-      if (state.event.attempts.length > 0 || state.phase !== 'STANDBY') e.preventDefault();
+      if (state !== null && (state.event.attempts.length > 0 || state.phase !== 'STANDBY')) e.preventDefault();
     });
   }
 
-  view.setExports(toJSON(state.event, Date.now()), toCSV(state.event));
   if (mock) driver.start();
-  dispatch({ type: 'render' }); // first render and first snapshot
 }
 
 main();
