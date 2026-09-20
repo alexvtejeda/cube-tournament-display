@@ -31,6 +31,31 @@ for i in 1 2 3 4 5 6; do git -C .worktrees/engine log -1 --format=%h; \
   committing.
 - HEAD frozen, tree clean → it finished. Run the **Orchestrator's checklist** below.
 
+**⚠ The worktree poll alone is ambiguous, and on 2026-09-19 22:27 it nearly produced the wrong
+call.** A live agent goes quiet for minutes at a time — between commits it thinks, and it blocks on
+slow commands (`npm run smoke` launches Chrome; waiting for port 9333 to close takes up to 90 s). A
+frozen HEAD and a byte-identical tree for three minutes looked exactly like an orphan. It was not.
+
+**The decisive test — do this first, it is instant and unambiguous.** A running subagent writes its
+own transcript, and that transcript is re-parented into the *resumed* session after a `/clear`:
+
+```sh
+find ~/.claude/projects/-home-noob-master-cube-tournament-display \
+  -path '*/subagents/*.jsonl' -mmin -3 -printf '%TH:%TM  %s  %p\n' | sort
+```
+
+- A subagent file written **in the last 2–3 minutes and growing** → **alive. Wait.** Read its tail to
+  see the task it is on.
+- Nothing recent, and the newest such file ends in `cost-state` → that agent exited; now use the
+  worktree poll above to tell *finished* from *orphaned*.
+
+Two traps that cost ~10 tool calls to see through:
+- **The session's own `*.jsonl` is not the agent's.** A resumed session writes a *new* top-level
+  transcript, and it fills with your own tool output — mistaking it for the agent's is self-confirming.
+  The agent is always one level down, under `<session-id>/subagents/`.
+- **`ps` cannot see a subagent.** It runs in-process inside the parent `claude`; there is no separate
+  pid and no process whose `cwd` is the worktree. An empty `ps` proves nothing.
+
 **Its report may still arrive** as a subagent hand-back in the fresh window, from an agent that
 window never dispatched. That is expected — hand-backs survive a clear. Treat it as a claim and
 check the branch anyway.
