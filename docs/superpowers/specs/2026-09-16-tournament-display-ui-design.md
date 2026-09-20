@@ -314,6 +314,8 @@ The bridge to RESULTS runs both of these in reverse on its way in, and fades on 
 | ATTRACT → RESULTS | the bridge ends, `RESULTS_INTRO_MS` after F | every plate moves to its place at once; the logo shrinks into the header; the face, tagline and footer fade over `--t-step` |
 | RESULTS → Mezcla | N or ←/→, while a university has attempts left | the called university's plate moves to Mezcla's and the band rises; the rest fades |
 | RESULTS → PENDING | U | the last attempt's plate moves to solo's and the band rises; the rest fades. The maze freezes (§2.5) |
+| ARMED or RUNNING → NO SIGNAL | the mat falls silent (§10.2) | the header, the band and the who line hold their places. From RUNNING the clock shrinks into TIEMPO CONGELADO; from ARMED the countdown fades. The headline, sentence, label and the header's marker fade in |
+| NO SIGNAL → ARMED or RUNNING | packets resume (§10.2) | the same moves in reverse. Returning to RUNNING the frozen time grows back to `--fs-clock`, as a captured still until the transition ends (§10.5) |
 
 **Standings updates.** When the standings change while a *standby* screen is up, the update runs as
 its own transition over `--t-long`. Each university's name and time move to their new slot by
