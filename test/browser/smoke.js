@@ -3,7 +3,7 @@
 //   npm run smoke            (CHROME=/path/to/chrome to override the binary)
 import { sleep, startHarness, waitFor } from './harness.js';
 
-const { base, openTab, check, finish } = await startHarness(9333);
+const { base, openTab, check, finish } = await startHarness(0);
 
 // Always a string: a poll can evaluate before the document exists, where `document.body` is still
 // null and Runtime.evaluate yields nothing. Returning '' lets a predicate say "not ready yet"

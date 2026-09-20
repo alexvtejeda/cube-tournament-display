@@ -3,7 +3,7 @@
 // CHROME=/path/to/chrome overrides the binary.
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStaticServer } from '../../serve.js';
@@ -21,29 +21,44 @@ export const waitFor = async (predicate, { timeout = 10000, every = 100, what = 
   }
 };
 
-export async function startHarness(debugPort) {
+// `requestedPort` is 0 in every caller: Chrome then picks a free port, so two runs — or an
+// unrelated tool that happens to hold a fixed port — can never drive each other's browser. A
+// number may still be passed, and is honoured, so the signature keeps working.
+export async function startHarness(requestedPort = 0) {
   const server = createStaticServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const profile = mkdtempSync(join(tmpdir(), 'ctd-chrome-'));
   // Without a GPU, WebGL (the maze) needs Chrome's software renderer, SwiftShader.
   const chrome = spawn(process.env.CHROME ?? 'google-chrome', [
     '--headless=new', '--no-sandbox', '--disable-gpu', '--enable-unsafe-swiftshader',
-    `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, 'about:blank',
+    `--remote-debugging-port=${requestedPort}`, `--user-data-dir=${profile}`, 'about:blank',
   ], { stdio: 'ignore' });
   process.on('exit', () => chrome.kill()); // also when a check throws
 
-  for (let i = 0; i < 50; i += 1) {
+  // Chrome writes the port it actually bound as the first line of DevToolsActivePort, in this
+  // launch's own profile directory. Readiness waits for *that* file, not for something answering a
+  // fixed port: the file is what proves the browser we then talk to is the one we just started.
+  // The second line is written with the first, so a file with a newline in it is complete.
+  const portFile = join(profile, 'DevToolsActivePort');
+  let debugPort = null;
+  for (let i = 0; i < 100 && debugPort === null; i += 1) {
     try {
-      await fetch(`http://127.0.0.1:${debugPort}/json/version`);
-      break;
+      const contents = readFileSync(portFile, 'utf8');
+      const [first] = contents.split('\n');
+      if (contents.includes('\n') && /^\d+$/.test(first)) debugPort = Number(first);
+      else await sleep(200);
     } catch {
-      await sleep(200);
+      await sleep(200); // not written yet
     }
   }
+  if (debugPort === null) throw new Error(`Chrome never wrote ${portFile}: it did not start`);
+  await waitFor(() => fetch(`http://127.0.0.1:${debugPort}/json/version`).then(() => true, () => false),
+    { timeout: 20000, what: `Chrome's DevTools endpoint on port ${debugPort}` });
 
   let failures = 0;
   return {
     base: `http://localhost:${server.address().port}`,
+    debugPort,
     openTab: (url) => openTab(debugPort, url),
     check(label, ok, detail = '') {
       if (!ok) failures += 1;

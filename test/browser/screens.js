@@ -111,7 +111,7 @@ const PENDING = [
   ['pending-no-name', at(stopAt(102180, armedIn(unnamed)), 0), '1:42.18', VIOLET, 'EN REVISIÓN', VIOLET],
 ];
 
-const { base, openTab, check, finish } = await startHarness(9334);
+const { base, openTab, check, finish } = await startHarness(0);
 const tab = await openTab(`${base}/audience.html`);
 await tab.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
 
