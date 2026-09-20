@@ -59,6 +59,10 @@ Open the operator window at `http://localhost:8080/` and the audience window at
 `http://localhost:8080/audience.html`, then drag the audience window to the projector. To rehearse
 without a mat, add `?driver=mock` to the operator URL. The mock keeps its own saved results.
 
+The operator window opens on **SETUP**: connect the mat, prove it with the six-item test, then
+resume the saved event or start a new one. Starting a new one over real recorded results asks for
+the attempt count to be typed; a rehearsal (`?driver=mock`) does not.
+
 `config/event.json` is generated from the CTF database with `npm run gen-event`. Participant names go
 in `config/participants.local.json`, as `{ "uce": "José Martínez" }`. Git ignores that file.
 

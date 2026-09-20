@@ -75,7 +75,7 @@ text as well as colour.
 | 6 | **RESULTS** | Podium + all thirteen | ✅ **Decided** — `results-05-paws.html` | none — a closing board on `F`, reached through ATTRACT, whose plates move to their places; the podium over a grid of plates, best time only; RootKitty climbs up over the winner's plate (UI spec §8) |
 | 7 | **NO SIGNAL** | Mat stopped transmitting | draft exists | wording; whether the audience sees it at all; it must not cover RESULTS (UI spec §8.9) |
 | 8 | **SIGNAL CHECK** | Pre-event and mid-event mat diagnostic (`S`) | ✅ **Decided** — `signal-04-final.html` | none — a five-link chain naming the broken link, a six-item mat test, a triggered waveform, and the bench rule (operator spec §3) |
-| 9 | **SETUP** | Mic permission, device picker, resume/fresh | not started | first-run flow; this is where most real failures surface. Reuses the chain, the picker and the remembered device (operator spec §3.12) |
+| 9 | **SETUP** | Mic permission, device picker, resume/fresh | ✅ **Decided** — `setup-01-layout.html`, `setup-02-firstrun.html` | none — a fresh event is gated on a live signal and 6 of 6, a resume on nothing; a fourth link state, `waiting`, keeps red for real faults (operator spec §4) |
 | 10 | **OPERATOR PANEL** | The control surface | not started | layout, roster navigation, and a signal-health meter that is SIGNAL CHECK's chain in one row (operator spec §3.12); must carry the full standings, the mat instruction and a large scramble (UI spec §4.6), and the inspection state with `Space`/`Esc` (§5.6); in PENDING, the suggestion, the four keys and the verdict the room is seeing (§7.7); `F`, how many universities have not competed, and the export within reach on RESULTS (§8.9) |
 
 The settled values for ATTRACT, STANDBY, ARMED, RUNNING, PENDING and RESULTS, and the shared tokens (radius, five type sizes,
@@ -143,7 +143,7 @@ before the whole of Phase 1 is designed:
    §3.12).
 2. **Write the screens plan for RESULTS and NO SIGNAL**, carrying RESULTS' core work (UI spec §9).
 
-Screens 9 and 10 are still undesigned, and they are the last of Phase 1.
+Screen 10 is still undesigned, and it is the last of Phase 1.
 
 Start the companion with:
 
