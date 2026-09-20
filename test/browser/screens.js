@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Worker } from 'node:worker_threads';
 import { CHANNEL } from '../../js/core/channel.js';
 import { createState, reduce } from '../../js/core/run-state.js';
-import { buildSnapshot } from '../../js/core/snapshot.js';
+import { RESULTS_INTRO_MS, buildSnapshot } from '../../js/core/snapshot.js';
 import { packet } from '../../js/drivers/scenarios.js';
 import { createScrambler } from '../../js/scrambler.js';
 import { attempt, dnf } from '../helpers/fixtures.js';
@@ -111,6 +111,17 @@ const PENDING = [
   ['pending-no-name', at(stopAt(102180, armedIn(unnamed)), 0), '1:42.18', VIOLET, 'EN REVISIÓN', VIOLET],
 ];
 
+// RESULTS (§8): every university has competed but UNICARIBE, which never arrived. F is pressed from
+// Mezcla, so the bridge leaves a university on screen and its plate returns to ATTRACT's grid (§8.2).
+const everyone = [...earlier, ...three('pucmm', 235100), ...three('uce', 102180)];
+const lastMezcla = next(createState(config, everyone));
+const ended = reduce(lastMezcla, cmd('results', 7000));
+const finalBoard = at(ended, 7000 + RESULTS_INTRO_MS);
+const bridge = at(ended, 7000);
+// NO SIGNAL (§10): the solo moments again, with the mat gone quiet.
+const gone = (state, now = 0) => buildSnapshot(state, now, { matSilent: true });
+const stillRunning = (ms, state = armed) => apply(state, mat(packet(' ', ms, true)));
+
 const { base, openTab, check, finish } = await startHarness(0);
 const tab = await openTab(`${base}/audience.html`);
 await tab.send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
@@ -195,7 +206,8 @@ check('ATTRACT: 13 plates in roster order', JSON.stringify(plates) === JSON.stri
 // STANDBY, Resultado (§4)
 await show(at(resultado, 0), 1000);
 await save('standby-resultado');
-check('Resultado: the header counts 11 of 13', (await textOf('.hdr span')) === 'UNIVERSIDAD 11 / 13');
+// By its slot, not by `.hdr span`: the header's first span is now NO SIGNAL's marker (§10.3).
+check('Resultado: the header counts 11 of 13', (await textOf('.hdr [data-slot="count"]')) === 'UNIVERSIDAD 11 / 13');
 check('Resultado: best time and position', (await textOf('.big')) === '3:55.10' && (await textOf('.sub')) === 'PUESTO 9');
 check('Resultado: ranked universities only, capped at 8', JSON.stringify(await slots()) === JSON.stringify(Array(8).fill('filled')));
 check('Resultado: the leader row is --gold-text', (await colorOf('.row.lead .u')) === 'rgb(255, 234, 149)');
@@ -457,6 +469,157 @@ check('not the best: the clock fades, and MEJOR TIEMPO fades in', !slower.before
 await show(at(armed, 0));
 await show(decided(review, 'plus2'), 100);
 check('a verdict this window did not see decided shows its landed frame at once', (await clockNow())[0] === '1:44.18');
+
+// ── RESULTS (§8) and NO SIGNAL (§10) ─────────────────────────────────────────────────────────
+const cq = (px) => px / 19.2;
+const boxes = (selectors) => js(`JSON.stringify(Object.fromEntries(${JSON.stringify(selectors)}.map((s) => {
+  const el = document.querySelector(s);
+  if (!el) return [s, null];
+  const r = el.getBoundingClientRect();
+  return [s, { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height }];
+})))`).then(JSON.parse);
+const teamsIn = (selector) => js(`[...document.querySelectorAll(${JSON.stringify(selector)})].map((p) => p.dataset.team)`);
+
+// The bridge: F from Mezcla goes through ATTRACT, and the plate on screen returns to its slot (§8.2).
+await show(at(lastMezcla, 0), 1000);
+const toBridge = await moves('Mezcla → ATTRACT (F): the logo moves and the plate returns to the grid',
+  bridge, ['logo', 'plate-unicaribe']);
+check('the bridge: ATTRACT says Resultados finales', (await textOf('.attract .soon')) === 'Resultados finales');
+check('the bridge: all thirteen plates are in ATTRACT’s grid', (await js("document.querySelectorAll('.attract .plate').length")) === 13);
+check('the bridge: only the university that was on screen is named', toBridge.after.filter((n) => n.startsWith('plate-')).length === 1);
+await save('results-bridge');
+
+// ATTRACT → RESULTS: every plate moves to its own place, so the grid itself must not be named.
+const arriving = await moves('ATTRACT → RESULTS: the logo and all thirteen plates move',
+  finalBoard, ['logo', ...config.teams.map((t) => `plate-${t.id}`)]);
+check('ATTRACT → RESULTS: the grid itself is not named, or it would carry its plates away',
+  !arriving.before.includes('attract-plates'));
+
+// The climb (§8.5): the kitty rises its own height while the clip line stays on the plate's edge.
+// The visible bottom is the box's bottom less whatever the clip takes off it. `inset()` computes
+// with mixed units — `inset(0px 0px 54.76% 0px)` — so the bottom edge is read by position and its
+// unit honoured, never by picking out the percentages.
+const climbAt = (ms) => js(`new Promise((resolve) => {
+  const img = document.querySelector('.results .kit img');
+  for (const a of img.getAnimations()) { a.pause(); a.currentTime = ${ms}; }
+  requestAnimationFrame(() => {
+    const box = img.getBoundingClientRect();
+    const parts = (getComputedStyle(img).clipPath.match(/inset\\(([^)]+)\\)/)?.[1] ?? '0px').trim().split(/\\s+/);
+    const edge = parts[2] ?? parts[0];
+    const clipped = edge.endsWith('%') ? (parseFloat(edge) / 100) * box.height : parseFloat(edge);
+    const plate = document.querySelector('.step.p1 .plate').getBoundingClientRect();
+    resolve(((box.bottom - clipped) - plate.top) / 19.2);
+  });
+})`);
+const climbOffsets = [];
+for (const ms of [800, 1000, 1200, 1400, 1600]) climbOffsets.push(await climbAt(ms));
+check('the climb: the kitty’s visible bottom stays on the plate’s edge, all the way up',
+  climbOffsets.every((offset) => Math.abs(offset) < 0.05), climbOffsets.map((o) => `${o.toFixed(3)}cqw`).join(', '));
+await js("for (const a of document.querySelector('.results .kit img').getAnimations()) a.finish()");
+await sleep(200);
+await save('results');
+
+// The board (§8.3, §8.6).
+check('RESULTS: thirteen plates, one per university', (await js("document.querySelectorAll('#screen .plate').length")) === 13);
+check('RESULTS: the podium reads 2nd, 1st, 3rd',
+  JSON.stringify(await teamsIn('.podium .plate')) === JSON.stringify(['uce', 'intec', 'itla']));
+check('RESULTS: places 4 to 13 go to the grid, in order',
+  JSON.stringify(await teamsIn('.grid .plate')) === JSON.stringify(['unapec', 'unibe', 'utesa', 'ucsd', 'uapa', 'unphu', 'pucmm', 'loyola', 'unicda', 'unicaribe']));
+check('RESULTS: a dash for competed-without-a-time, and NO PARTICIPÓ for never competed',
+  (await textOf('.cell:nth-child(9) .line')) === '—' && (await textOf('.cell:nth-child(10) .line')) === 'NO PARTICIPÓ');
+const gridPlate = (await boxes(['.cell .plate']))['.cell .plate'];
+check('RESULTS: the grid’s plates are ATTRACT’s own 12.7cqw', Math.abs(cq(gridPlate.width) - 12.7) < 0.05,
+  `${cq(gridPlate.width).toFixed(2)}cqw`);
+const golden = await js(`[...document.querySelectorAll('.screen *')].filter((el) => getComputedStyle(el).color === 'rgb(255, 234, 149)').map((el) => el.className)`);
+check('RESULTS: --gold-text is on the winner’s time and nowhere else',
+  JSON.stringify(golden) === JSON.stringify(['time']), golden.join(', '));
+const boardColors = await colorsUsed();
+check('RESULTS: no --go, and no --red outside the kitty’s glow',
+  !boardColors.includes(GO) && !boardColors.includes(RED) && !boardColors.includes(GOLD));
+// The kitty's paws hang below the plate's edge by the share of the asset that sits below it (§8.4).
+const kitBox = await boxes(['.results .kit', '.step.p1 .plate', '.hdr', '.podium', '.grid', '.results', '#stage']);
+const paws = cq(kitBox['.results .kit'].bottom - kitBox['.step.p1 .plate'].top);
+check('RESULTS: the kitty sits on the winner’s plate, paws over the edge',
+  Math.abs(paws - (11 * 65 / 1200)) < 0.1, `${paws.toFixed(3)}cqw, expected ${(11 * 65 / 1200).toFixed(3)}cqw`);
+// The band is gone, so the body is the band's 10.95cqw plus its own 39.02cqw, and the board is
+// centred in it. The plan's absolute figures for the podium and the grid were a prediction that did
+// not survive centring, so what is checked is the invariant: inside the header, inside the padding,
+// and the same gap top and bottom.
+const hdrBottom = cq(kitBox['.hdr'].bottom - kitBox['#stage'].top);
+const podiumTop = cq(kitBox['.podium'].top - kitBox['#stage'].top);
+const gridBottom = cq(kitBox['.grid'].bottom - kitBox['#stage'].top);
+check('RESULTS: the header ends at 6.26cqw, as on every other screen', Math.abs(hdrBottom - 6.26) < 0.1, `${hdrBottom.toFixed(2)}cqw`);
+check('RESULTS: the body is the band’s 10.95cqw plus its own 39.02cqw',
+  Math.abs(cq(kitBox['.results'].height) - 49.97) < 0.1, `${cq(kitBox['.results'].height).toFixed(2)}cqw`);
+check('RESULTS: the podium starts clear of the header, and the grid ends clear of the edge',
+  podiumTop > hdrBottom + 0.9 && gridBottom < 56.25 - 1.9, `podium ${podiumTop.toFixed(2)}cqw, grid ends ${gridBottom.toFixed(2)}cqw`);
+check('RESULTS: the board is centred in the body',
+  Math.abs((podiumTop - hdrBottom - 0.9) - (56.25 - 1.9 - gridBottom)) < 0.05);
+// The longest line there can be: a two-digit place and a time just under the cutoff.
+const lineGap = await js(`(() => {
+  const line = document.querySelector('.cell .line');
+  const probe = line.cloneNode(true);
+  probe.querySelector('.place').textContent = '12';
+  const time = probe.querySelector('.time');
+  time.className = 'time';
+  time.textContent = '4:58.66';
+  line.parentNode.append(probe);
+  const gap = probe.querySelector('.time').getBoundingClientRect().left - probe.querySelector('.place').getBoundingClientRect().right;
+  probe.remove();
+  return gap / 19.2;
+})()`);
+check('RESULTS: the longest line, 12 and 4:58.66, still has its place and time apart', lineGap >= 2, `${lineGap.toFixed(2)}cqw`);
+
+// NO SIGNAL (§10.3–§10.5). RUNNING's own frame first, to compare against.
+await show(at(stillRunning(84020), 0), 1000);
+const runningWho = await js("document.querySelector('.solo .who').innerHTML");
+const runningBand = await js("document.querySelector('.band').innerHTML");
+const runningBandHeight = await bandHeight();
+await show(gone(stillRunning(84020)), 1000);
+await save('nosignal-running');
+check('NO SIGNAL: the header’s centre reads SIN SEÑAL', (await textOf('.hdr .sig')) === 'SIN SEÑAL');
+const markBoxes = await boxes(['.hdr .sig', '.hdr']);
+check('NO SIGNAL: the marker is centred in the header',
+  Math.abs(cq((markBoxes['.hdr .sig'].left + markBoxes['.hdr .sig'].right) / 2 - (markBoxes['.hdr'].left + markBoxes['.hdr'].right) / 2)) < 0.5);
+check('NO SIGNAL: the word is --violet, and only the dot is --red',
+  (await colorOf('.hdr .sig')) === VIOLET && (await js("getComputedStyle(document.querySelector('.hdr .sig .dot')).backgroundColor")) === RED);
+check('NO SIGNAL: the band is untouched', (await js("document.querySelector('.band').innerHTML")) === runningBand
+  && (await bandHeight()) === runningBandHeight);
+check('NO SIGNAL: the who line is untouched', (await js("document.querySelector('.solo .who').innerHTML")) === runningWho);
+check('NO SIGNAL: the frozen time is the one that was on the clock', (await textOf('.frozen')) === '1:24.02');
+check('NO SIGNAL: the countdown and the clock are gone', (await js("document.querySelector('.solo .clock')")) === null);
+check('NO SIGNAL: the frozen time is --violet while it is inside the cutoff', (await colorOf('.frozen')) === VIOLET);
+
+await show(gone(stillRunning(320000)), 1000);
+await save('nosignal-over');
+check('NO SIGNAL: a frozen time past the cutoff keeps its red', (await colorOf('.frozen')) === RED
+  && (await textOf('.frozen')) === '5:20.00');
+
+await show(gone(inspecting, 8000), 1000);
+await save('nosignal-armed');
+check('NO SIGNAL over ARMED: nothing to freeze, and nothing said about a time',
+  (await js("document.querySelector('.frozen')")) === null && !(await js("document.querySelector('.solo').textContent")).includes('TIEMPO CONGELADO'));
+check('NO SIGNAL over ARMED: the sentence says the attempt has not begun',
+  (await js("document.querySelector('.nosignal .sentence').textContent")).includes('aún no ha comenzado'));
+
+// The four exempt screens are byte for byte what they are with a live mat (§10.1, §10.1.1).
+for (const [name, state, now] of [['ATTRACT', createState(config), 0], ['Mezcla', mezcla, 0],
+  ['Resultado', resultado, 0], ['PENDING', review, 0]]) {
+  await show(at(state, now), 1000);
+  await show(at(state, now), 400); // settle: the first draw of ATTRACT still carries the leaving name
+  const live = await js("document.getElementById('screen').innerHTML");
+  await show(gone(state, now), 400);
+  const quiet = await js("document.getElementById('screen').innerHTML");
+  check(`a silent mat changes nothing on ${name}`, live === quiet && (await js("document.querySelector('.hdr .sig')?.textContent ?? ''")) === '');
+}
+
+// The two changes into and out of the takeover (§2.7, §10.5).
+await show(at(armed, 0), 1000);
+await moves('ARMED → NO SIGNAL: the plate, the divider, INTENTO · n · DE 3, the name and the band hold', gone(inspecting, 8000), WHO);
+await moves('NO SIGNAL → ARMED: the same, in reverse', at(armed, 0), WHO);
+await show(at(stillRunning(84020), 0), 1000);
+await moves('RUNNING → NO SIGNAL: the same, and the clock shrinks into TIEMPO CONGELADO', gone(stillRunning(84020)), [...WHO, 'time']);
+await moves('NO SIGNAL → RUNNING: the same, in reverse', at(stillRunning(84020), 0), [...WHO, 'time']);
 
 // With reduced motion every change is a cut, and a verdict lands at once (§2.2).
 await tab.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
