@@ -3,7 +3,12 @@
   <head>
     <meta charset="utf-8">
     <title>Operador · Reto del Cubo</title>
-    <link rel="stylesheet" href="https://use.typekit.net/frw4sme.css">
+    <!-- The font is fetched over the network, and a pending stylesheet blocks the scripts below from
+         running, so a plain <link> makes the window's start wait on the CDN. Preload fetches it
+         without blocking; the swap applies it the moment it lands, and the window opens offline. -->
+    <link rel="preload" as="style" href="https://use.typekit.net/frw4sme.css"
+          onload="this.onload = null; this.rel = 'stylesheet';">
+    <noscript><link rel="stylesheet" href="https://use.typekit.net/frw4sme.css"></noscript>
     <link rel="stylesheet" href="css/debug.css">
     <link rel="stylesheet" href="css/operator.css">
   </head>
