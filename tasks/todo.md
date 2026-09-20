@@ -54,6 +54,12 @@ Run in this order. Each row's dependencies are satisfied by every row above it.
     anything.
 - [ ] **5 · RESULTS and NO SIGNAL** — `docs/superpowers/plans/2026-09-19-results-and-no-signal.md`
   (needs 1, 2 and 3)
+  - **AUTHORIZED DEVIATION, owner's call 2026-09-19: fix the hardcoded debug port.** Plan 5 extends
+    the browser harness, so it is the last dispatch that can. Replace `DEBUG_PORT = 9333` with a port
+    chosen at launch, and make the readiness loop prove the browser answering is *ours* rather than
+    accepting any answer on the port. Chrome writes the port it actually bound to
+    `<user-data-dir>/DevToolsActivePort` (first line), so launch with `--remote-debugging-port=0` and
+    read it back. See **the port collision** below for why this is not cosmetic.
   - 13 tasks, screens 6 and 7. Its Task 1 refuses to start unless all three are finished.
   - Tasks 4, 6, 7 and 8 carry code that was **run and passed** (27 tests) before the plan was
     written; Tasks 2, 3, 5 and 9–12 are transcriptions. The plan says which is which.
@@ -178,6 +184,13 @@ was spotted. No plan fixes it — it is a candidate for the parked list.
 **The standard of proof this chain now uses for the browser gate: three serial runs, identical.**
 One green run proved nothing here — the very first investigation had a run pass 34/34 between two
 that failed.
+
+**The port collision is wider than this repo.** `~/.claude/skills/design-recon/scripts/
+launch-cobrowse.sh` defaults to **the same port 9333**, and before starting it runs
+`pgrep -f "remote-debugging-port=9333"` and **kills whatever it finds**. So a co-browse session
+started while `npm run smoke` is running kills the smoke test's Chrome mid-run; a smoke run started
+while co-browse holds 9333 attaches to the *visible* browser and drives it. Neither tool would
+report anything sensible. Fixing it here is plan 5's authorized deviation, above.
 
 ---
 
