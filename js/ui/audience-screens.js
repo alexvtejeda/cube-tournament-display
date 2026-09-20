@@ -99,7 +99,7 @@ export function attractHtml(teams) {
 // The frame every other screen shares (§4.2, §5.3). Only its slots change, so a screen change that
 // stays inside it keeps the header and the band.
 export const FRAME_HTML = `<div class="frame">
-  <header class="hdr"><img src="assets/logo-ctf.svg" alt="CTF Interuniversitario 2026"${vt('logo')}><span data-slot="count"></span></header>
+  <header class="hdr"><img src="assets/logo-ctf.svg" alt="CTF Interuniversitario 2026"${vt('logo')}><span class="sig" data-slot="signal"></span><span data-slot="count"></span></header>
   <div class="body" data-slot="body"></div>
   <footer class="band"${vt('band')}>
     <div class="net" data-slot="net"></div>
@@ -223,5 +223,40 @@ export function resultsHtml({ finalStandings, teams }) {
   return `<div class="results">
   <div class="podium">${podiumStep(second, of(second.teamId), 2)}${podiumStep(first, of(first.teamId), 1)}${podiumStep(third, of(third.teamId), 3)}</div>
   <div class="grid">${finalStandings.slice(3).map((r) => gridCell(r, of(r.teamId))).join('')}</div>
+</div>`;
+}
+
+// NO SIGNAL's words (§10.4). Each lives in one place, as PENDING's do (§2.6). They hold markup, so
+// they are written out as they are: they are the view's own strings, never anything from a roster.
+const SIN_SENAL = {
+  mark: 'SIN SEÑAL',
+  headline: 'CRONÓMETRO EN PAUSA',
+  frozen: 'TIEMPO CONGELADO',
+  running: 'El tiempo <b>no se ha perdido</b>. Continúa al volver la señal.',
+  armed: 'El intento <b>aún no ha comenzado</b>. Continúa al volver la señal.',
+};
+
+// The header's centre, which is empty on every other screen (§4.2, §10.3). The word is --violet and
+// only the dot is --red, so red keeps its single text role (§2.1).
+export const signalMarkHtml = (screen) => (screen === 'nosignal' ? `<i class="dot"></i>${SIN_SENAL.mark}` : '');
+
+// NO SIGNAL (§10.3): ARMED's body with the clock block replaced. The who line is untouched, so the
+// plate, the divider, INTENTO and the name hold their places across the change, and the header and
+// the band are the frame's own (§10.5).
+export function noSignalHtml(snapshot) {
+  const running = snapshot.phase === 'RUNNING';
+  // The frozen time keeps RUNNING's red past the cutoff: it is still true (§7.1, §10.3).
+  const over = running && snapshot.displayMs > snapshot.cutoffMs ? ' over' : '';
+  const frozen = running
+    ? `<div class="label">${SIN_SENAL.frozen}</div>`
+      + `<div class="frozen${over}"><span class="piece"${vt('time')}>${formatMs(snapshot.displayMs)}</span></div>`
+    : '';
+  // `solo` as well as `nosignal`: the who line is the same element in the same place, so it must
+  // also be the same CSS. Only the clock block below it differs.
+  return `<div class="solo nosignal">
+  <div class="who">${soloWhoHtml(snapshot)}</div>
+  <div class="headline">${SIN_SENAL.headline}</div>
+  <div class="sentence">${running ? SIN_SENAL.running : SIN_SENAL.armed}</div>
+  ${frozen}
 </div>`;
 }

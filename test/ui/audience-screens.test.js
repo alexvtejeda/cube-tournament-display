@@ -5,7 +5,8 @@ import { buildSnapshot } from '../../js/core/snapshot.js';
 import { packet } from '../../js/drivers/scenarios.js';
 import {
   FRAME_HTML, RESULTS_FRAME_HTML, attractFooter, attractHtml, changeBetween, countHtml, escapeHtml, familyOf,
-  mazeFrozen, resultsHtml, sceneOf, scrambleHtml, screenFor, soloWhoHtml, standbyHtml,
+  mazeFrozen, noSignalHtml, resultsHtml, sceneOf, scrambleHtml, screenFor, signalMarkHtml, soloWhoHtml,
+  standbyHtml,
 } from '../../js/ui/audience-screens.js';
 import { attempt, dnf, makeConfig } from '../helpers/fixtures.js';
 import { apply, cmd, mat } from '../helpers/actions.js';
@@ -322,4 +323,52 @@ test('RESULTS has no band, which is what lets the band rise again on the way out
   assert.ok(!RESULTS_FRAME_HTML.includes('class="band"'));
   assert.ok(RESULTS_FRAME_HTML.includes('RESULTADOS FINALES'));
   assert.ok(RESULTS_FRAME_HTML.includes('view-transition-name:logo'));
+});
+
+// --- The takeover (UI spec §10.3, §10.4) ---
+
+const silent = (extra = {}) => ({
+  phase: 'RUNNING', displayMs: 84020, cutoffMs: 300000, attemptNo: 2, attemptsPerCompetitor: 3,
+  competitor: TEAMS[0], teams: TEAMS, verdict: null, ...extra,
+});
+
+test('over RUNNING the frozen time is shown, and carries the clock identity', () => {
+  const html = noSignalHtml(silent());
+  assert.ok(html.includes('CRONÓMETRO EN PAUSA'));
+  assert.ok(html.includes('no se ha perdido'));
+  assert.ok(html.includes('TIEMPO CONGELADO'));
+  assert.ok(html.includes('1:24.02'));
+  assert.ok(html.includes('view-transition-name:time'), 'the clock shrinks into it (§10.5)');
+});
+
+test('over ARMED there is nothing to freeze, and nothing carries', () => {
+  const html = noSignalHtml(silent({ phase: 'ARMED', displayMs: null }));
+  assert.ok(html.includes('CRONÓMETRO EN PAUSA'));
+  assert.ok(html.includes('aún no ha comenzado'));
+  assert.ok(!html.includes('TIEMPO CONGELADO'));
+  assert.ok(!html.includes('view-transition-name:time'));
+});
+
+test('the who line is unchanged, so the plate and the name hold their places', () => {
+  const html = noSignalHtml(silent());
+  assert.ok(html.includes('view-transition-name:plate-intec'));
+  assert.ok(html.includes('view-transition-name:name-intec'));
+  assert.ok(html.includes('view-transition-name:attempt-n'));
+});
+
+test('a frozen time past the cutoff keeps its red, because it is still true', () => {
+  assert.ok(noSignalHtml(silent({ displayMs: 320000 })).includes('frozen over'));
+  assert.ok(!noSignalHtml(silent()).includes('frozen over'));
+});
+
+test('the header marker appears on NO SIGNAL and nowhere else', () => {
+  assert.ok(signalMarkHtml('nosignal').includes('SIN SEÑAL'));
+  assert.ok(signalMarkHtml('nosignal').includes('class="dot"'));
+  for (const screen of ['armed', 'running', 'pending', 'mezcla', 'resultado', 'results']) {
+    assert.equal(signalMarkHtml(screen), '', `${screen} has no marker`);
+  }
+});
+
+test('the shared frame carries an empty slot for the marker', () => {
+  assert.ok(FRAME_HTML.includes('data-slot="signal"'));
 });
