@@ -4,21 +4,19 @@
 // js/ui/clock-display.js decides what the solo clock says.
 import { formatMs } from '../core/format.js';
 
-// Which screen a snapshot shows (UI spec §4.1, §7.6, §8.2, §10.1). PENDING's layout stays up for its
+// Which screen a snapshot shows (UI spec §4.1, §7.6, §8.2). PENDING's layout stays up for its
 // verdict, after the phase has already moved on to SCRAMBLE or STANDBY.
-export function screenFor({ phase, result, verdict, resultsIntro, matSilent }) {
-  // The verdict comes first, which is also what exempts PENDING from NO SIGNAL: the mat plays no
-  // part while the operator decides, and covering a verdict would destroy it (§10.1.1).
+//
+// There is no NO SIGNAL takeover (UI spec §10). On the real mat the packet rate dips while it idles
+// and the takeover flickered over the screens it covered, so the projector never judges the signal;
+// the operator's SIGNAL CHECK does.
+export function screenFor({ phase, result, verdict, resultsIntro }) {
   if (verdict !== null || phase === 'PENDING') return 'pending';
   // The closing board arrives through ATTRACT, which is the bridge (§8.2).
   if (phase === 'RESULTS') return resultsIntro ? 'attract' : 'results';
   if (phase === 'STANDBY') return result === null ? 'attract' : 'resultado';
   if (phase === 'SCRAMBLE') return 'mezcla';
-  // Only here: the mat's silence is news exactly where the room is waiting on the mat (§10.1).
-  // Not in ARMED, the INSPECCIÓN screen: on real hardware the mat's packets come unevenly while it
-  // idles, so the check flickered SIN SEÑAL over it. The clock running is where it stays honest.
-  if (phase === 'ARMED') return 'armed';
-  return matSilent ? 'nosignal' : 'running';
+  return phase === 'ARMED' ? 'armed' : 'running';
 }
 
 // The layout families of UI spec §2.7. A screen change moves shared elements when the family
@@ -26,7 +24,7 @@ export function screenFor({ phase, result, verdict, resultsIntro, matSilent }) {
 const FAMILY = {
   attract: 'attract', resultado: 'standby', mezcla: 'standby',
   armed: 'solo', running: 'solo', pending: 'solo',
-  results: 'results', nosignal: 'signal',
+  results: 'results',
 };
 export const familyOf = (screen) => FAMILY[screen];
 
@@ -101,7 +99,7 @@ export function attractHtml(teams) {
 // The frame every other screen shares (§4.2, §5.3). Only its slots change, so a screen change that
 // stays inside it keeps the header and the band.
 export const FRAME_HTML = `<div class="frame">
-  <header class="hdr"><img src="assets/logo-ctf.svg" alt="CTF Interuniversitario 2026"${vt('logo')}><span class="sig" data-slot="signal"></span><span data-slot="count"></span></header>
+  <header class="hdr"><img src="assets/logo-ctf.svg" alt="CTF Interuniversitario 2026"${vt('logo')}><span data-slot="count"></span></header>
   <div class="body" data-slot="body"></div>
   <footer class="band"${vt('band')}>
     <div class="net" data-slot="net"></div>
@@ -225,36 +223,5 @@ export function resultsHtml({ finalStandings, teams }) {
   return `<div class="results">
   <div class="podium">${podiumStep(second, of(second.teamId), 2)}${podiumStep(first, of(first.teamId), 1)}${podiumStep(third, of(third.teamId), 3)}</div>
   <div class="grid">${finalStandings.slice(3).map((r) => gridCell(r, of(r.teamId))).join('')}</div>
-</div>`;
-}
-
-// NO SIGNAL's words (§10.4). Each lives in one place, as PENDING's do (§2.6). They hold markup, so
-// they are written out as they are: they are the view's own strings, never anything from a roster.
-const SIN_SENAL = {
-  mark: 'SIN SEÑAL',
-  headline: 'CRONÓMETRO EN PAUSA',
-  frozen: 'TIEMPO CONGELADO',
-  sentence: 'El tiempo <b>no se ha perdido</b>. Continúa al volver la señal.',
-};
-
-// The header's centre, which is empty on every other screen (§4.2, §10.3). The word is --violet and
-// only the dot is --red, so red keeps its single text role (§2.1).
-export const signalMarkHtml = (screen) => (screen === 'nosignal' ? `<i class="dot"></i>${SIN_SENAL.mark}` : '');
-
-// NO SIGNAL (§10.3): RUNNING's body with the clock block replaced. The who line is untouched, so the
-// plate, the divider, INTENTO and the name hold their places across the change, and the header and
-// the band are the frame's own (§10.5).
-export function noSignalHtml(snapshot) {
-  // The frozen time keeps RUNNING's red past the cutoff: it is still true (§7.1, §10.3).
-  const over = snapshot.displayMs > snapshot.cutoffMs ? ' over' : '';
-  const frozen = `<div class="label">${SIN_SENAL.frozen}</div>`
-    + `<div class="frozen${over}"><span class="piece"${vt('time')}>${formatMs(snapshot.displayMs)}</span></div>`;
-  // `solo` as well as `nosignal`: the who line is the same element in the same place, so it must
-  // also be the same CSS. Only the clock block below it differs.
-  return `<div class="solo nosignal">
-  <div class="who">${soloWhoHtml(snapshot)}</div>
-  <div class="headline">${SIN_SENAL.headline}</div>
-  <div class="sentence">${SIN_SENAL.sentence}</div>
-  ${frozen}
 </div>`;
 }

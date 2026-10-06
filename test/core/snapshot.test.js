@@ -146,12 +146,7 @@ test('resultsIntro is false in every other phase', () => {
   assert.equal(buildSnapshot(createState(boardConfig(), finished()), 20000).resultsIntro, false);
 });
 
-test('matSilent defaults to false and is carried through when given', () => {
-  assert.equal(buildSnapshot(board(), 20000).matSilent, false);
-  assert.equal(buildSnapshot(board(), 20000, { matSilent: true }).matSilent, true);
-});
-
 test('a RESULTS snapshot still survives structuredClone', () => {
-  const snapshot = buildSnapshot(board(), 20000, { matSilent: true });
+  const snapshot = buildSnapshot(board(), 20000);
   assert.deepEqual(structuredClone(snapshot), snapshot);
 });

@@ -13,10 +13,7 @@ export const STANDINGS_UPDATE_MS = VERDICT_MS + 800 + 400;
 // (two --t-long, 1600 ms), UI spec §8.2. The same motion tokens again.
 export const RESULTS_INTRO_MS = 800 + 1600;
 
-// `matSilent` comes from the operator window, which owns the microphone and the packet clock: the
-// core has neither (UI spec §10.6). It defaults to false so every existing caller and test is
-// unaffected, and so a window that never measures shows no takeover rather than a permanent one.
-export function buildSnapshot(state, now, { matSilent = false } = {}) {
+export function buildSnapshot(state, now) {
   const { event, phase } = state;
   const { config } = event;
   const table = standings(event);
@@ -46,7 +43,6 @@ export function buildSnapshot(state, now, { matSilent = false } = {}) {
     finalStandings: phase === 'RESULTS' ? table : null,
     // The bridge through ATTRACT, from F to the board (UI spec §8.2).
     resultsIntro: phase === 'RESULTS' && now - state.resultsAt < RESULTS_INTRO_MS,
-    matSilent,
   };
 }
 

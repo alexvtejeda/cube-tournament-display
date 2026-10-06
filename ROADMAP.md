@@ -74,7 +74,7 @@ text as well as colour.
 | 4 | **RUNNING** | Live solve, clock is the hero | ✅ **Decided** — `running-06-final.html` | none — red past the cutoff, clock at 13.6cqw (ARMED's too), hundredths on every mat packet (UI spec §6) |
 | 5 | **PENDING** | Time frozen, awaiting operator | ✅ **Decided** — `pending-16-final.html` | none — violet under EN REVISIÓN (red past the cutoff); a 3 s verdict with the +2 and DNF tags and the redo rewind; the motion signature and the screen-change rule (UI spec §7, §2.2, §2.7) |
 | 6 | **RESULTS** | Podium + all thirteen | ✅ **Decided** — `results-05-paws.html` | none — a closing board on `F`, reached through ATTRACT, whose plates move to their places; the podium over a grid of plates, best time only; RootKitty climbs up over the winner's plate (UI spec §8) |
-| 7 | **NO SIGNAL** | Mat stopped transmitting | ✅ **Decided** — `nosignal-06-identity.html` | none — a takeover on ARMED and RUNNING only, calm, with the clock shrinking into TIEMPO CONGELADO; PENDING and RESULTS are exempt (UI spec §10) |
+| 7 | **NO SIGNAL** | Mat stopped transmitting | ❌ **Removed 2026-10-06** — was `nosignal-06-identity.html` | none — on the real mat the packet rate dips while it idles, and the takeover flickered SIN SEÑAL over INSPECCIÓN. The projector no longer judges the signal; SIGNAL CHECK does. UI spec §10 is historical |
 | 8 | **SIGNAL CHECK** | Pre-event and mid-event mat diagnostic (`S`) | ✅ **Decided** — `signal-04-final.html` | none — a five-link chain naming the broken link, a six-item mat test, a triggered waveform, and the bench rule (operator spec §3) |
 | 9 | **SETUP** | Mic permission, device picker, resume/fresh | ✅ **Decided** — `setup-01-layout.html`, `setup-02-firstrun.html` | none — a fresh event is gated on a live signal and 6 of 6, a resume on nothing; a fourth link state, `waiting`, keeps red for real faults (operator spec §4) |
 | 10 | **OPERATOR PANEL** | The control surface | not started | layout, roster navigation, and a signal-health meter that is SIGNAL CHECK's chain in one row (operator spec §3.12); must carry the full standings, the mat instruction and a large scramble (UI spec §4.6), and the inspection state with `Space`/`Esc` (§5.6); in PENDING, the suggestion, the four keys and the verdict the room is seeing (§7.7); `F`, how many universities have not competed, and the export within reach on RESULTS (§8.9) |
@@ -101,7 +101,7 @@ independent of UI design and could begin immediately.
 | 6 | **Audience screens** | All ten screens | 4, UI spec | every phase renders correctly at 1080p — ✅ **done for the audience window** (screens 1–7); screen 10 is the operator's, and undesigned |
 | 7 | **Maze** | `createMaze({canvas})` refactor; freeze on RUNNING and PENDING | 6 | runs on idle screens, holds its last frame during a solve |
 | 8 | **Persistence** | Per-result `localStorage`, resume/fresh prompt, JSON + CSV export | 2 | kill the tab mid-event, reload, standings intact |
-| 9 | **Signal check** | The screen in operator spec §3: the chain, the mat test, the waveform, the picker | 1, operator spec | screen decodes a live mat. NO SIGNAL depends on this row: `matDelivering` lives beside `THRESHOLDS`, so the projector and the laptop cannot disagree about a dead mat (UI spec §10.2) |
+| 9 | **Signal check** | The screen in operator spec §3: the chain, the mat test, the waveform, the picker | 1, operator spec | screen decodes a live mat |
 | 10 | **Hardware validation** | One session on a machine with a working microphone | 9 | a real StackMat drives a complete attempt |
 | 11 | **Dry run** | Full rehearsal | all | 39 attempts with no operator hesitation |
 
@@ -157,8 +157,8 @@ Two things are deliberately **not** built, and neither is an oversight:
    because a refused window returns early in `main()`. That amendment belongs with the signal check.
 
 In Phase 2, rows 10 (**hardware validation**) and 11 (**dry run**) are the last unstarted rows, and
-row 10 is the one that retunes `THRESHOLDS`. Both NO SIGNAL and SIGNAL CHECK's PAQUETES link read
-those numbers, so retuning them is still one edit (UI spec §10.2).
+row 10 is the one that retunes `THRESHOLDS`, which only SIGNAL CHECK reads now: the first hardware
+session removed NO SIGNAL (row 7 of the screens table).
 
 Brainstorm screen 10 in the visual companion, starting from operator spec §3.12 and §4.
 

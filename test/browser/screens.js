@@ -118,9 +118,6 @@ const lastMezcla = next(createState(config, everyone));
 const ended = reduce(lastMezcla, cmd('results', 7000));
 const finalBoard = at(ended, 7000 + RESULTS_INTRO_MS);
 const bridge = at(ended, 7000);
-// NO SIGNAL (§10): the solo moments again, with the mat gone quiet.
-const gone = (state, now = 0) => buildSnapshot(state, now, { matSilent: true });
-const stillRunning = (ms, state = armed) => apply(state, mat(packet(' ', ms, true)));
 
 const { base, openTab, check, finish } = await startHarness(0);
 const tab = await openTab(`${base}/audience.html`);
@@ -593,47 +590,6 @@ const lineGap = await js(`(() => {
   return gap / 19.2;
 })()`);
 check('RESULTS: the longest line, 12 and 4:58.66, still has its place and time apart', lineGap >= 2, `${lineGap.toFixed(2)}cqw`);
-
-// NO SIGNAL (§10.3–§10.5). RUNNING's own frame first, to compare against.
-await show(at(stillRunning(84020), 0), 1000);
-const runningWho = await js("document.querySelector('.solo .who').innerHTML");
-const runningBand = await js("document.querySelector('.band').innerHTML");
-const runningBandHeight = await bandHeight();
-await show(gone(stillRunning(84020)), 1000);
-await save('nosignal-running');
-check('NO SIGNAL: the header’s centre reads SIN SEÑAL', (await textOf('.hdr .sig')) === 'SIN SEÑAL');
-const markBoxes = await boxes(['.hdr .sig', '.hdr']);
-check('NO SIGNAL: the marker is centred in the header',
-  Math.abs(cq((markBoxes['.hdr .sig'].left + markBoxes['.hdr .sig'].right) / 2 - (markBoxes['.hdr'].left + markBoxes['.hdr'].right) / 2)) < 0.5);
-check('NO SIGNAL: the word is --violet, and only the dot is --red',
-  (await colorOf('.hdr .sig')) === VIOLET && (await js("getComputedStyle(document.querySelector('.hdr .sig .dot')).backgroundColor")) === RED);
-check('NO SIGNAL: the band is untouched', (await js("document.querySelector('.band').innerHTML")) === runningBand
-  && (await bandHeight()) === runningBandHeight);
-check('NO SIGNAL: the who line is untouched', (await js("document.querySelector('.solo .who').innerHTML")) === runningWho);
-check('NO SIGNAL: the frozen time is the one that was on the clock', (await textOf('.frozen')) === '1:24.02');
-check('NO SIGNAL: the countdown and the clock are gone', (await js("document.querySelector('.solo .clock')")) === null);
-check('NO SIGNAL: the frozen time is --violet while it is inside the cutoff', (await colorOf('.frozen')) === VIOLET);
-
-await show(gone(stillRunning(320000)), 1000);
-await save('nosignal-over');
-check('NO SIGNAL: a frozen time past the cutoff keeps its red', (await colorOf('.frozen')) === RED
-  && (await textOf('.frozen')) === '5:20.00');
-
-// The exempt screens are byte for byte what they are with a live mat (§10.1, §10.1.1).
-for (const [name, state, now] of [['ATTRACT', createState(config), 0], ['Mezcla', mezcla, 0],
-  ['Resultado', resultado, 0], ['PENDING', review, 0], ['ARMED', armed, 0], ['inspection', inspecting, 8000]]) {
-  await show(at(state, now), 1000);
-  await show(at(state, now), 400); // settle: the first draw of ATTRACT still carries the leaving name
-  const live = await js("document.getElementById('screen').innerHTML");
-  await show(gone(state, now), 400);
-  const quiet = await js("document.getElementById('screen').innerHTML");
-  check(`a silent mat changes nothing on ${name}`, live === quiet && (await js("document.querySelector('.hdr .sig')?.textContent ?? ''")) === '');
-}
-
-// The change into and out of the takeover (§2.7, §10.5).
-await show(at(stillRunning(84020), 0), 1000);
-await moves('RUNNING → NO SIGNAL: the same, and the clock shrinks into TIEMPO CONGELADO', gone(stillRunning(84020)), [...WHO, 'time']);
-await moves('NO SIGNAL → RUNNING: the same, in reverse', at(stillRunning(84020), 0), [...WHO, 'time']);
 
 // With reduced motion every change is a cut, and a verdict lands at once (§2.2).
 await tab.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });

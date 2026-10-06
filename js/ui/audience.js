@@ -6,8 +6,7 @@ import { createMaze } from '../../vendor/hero-maze3d.js';
 import { createSubscriber } from '../core/channel.js';
 import {
   FRAME_HTML, RESULTS_FRAME_HTML, SOLO_HTML, attractFooter, attractHtml, changeBetween, countHtml,
-  familyOf, mazeFrozen, noSignalHtml, resultsHtml, sceneOf, scrambleHtml, screenFor, signalMarkHtml,
-  soloWhoHtml, standbyHtml,
+  familyOf, mazeFrozen, resultsHtml, sceneOf, scrambleHtml, screenFor, soloWhoHtml, standbyHtml,
 } from './audience-screens.js';
 import { VERDICT_LANDS_MS, clockIsBest, soloDisplay } from './clock-display.js';
 
@@ -126,16 +125,10 @@ function draw(snapshot) {
   }
   patch(screen, FRAME_HTML);
   patch(slot('count'), countHtml(snapshot));
-  patch(slot('signal'), signalMarkHtml(name));
   patch(slot('net'), snapshot.scrambleSvg ?? ''); // SVG from our own scramble worker
   patch(slot('scramble'), scrambleHtml(snapshot));
   if (familyOf(name) === 'standby') {
     patch(slot('body'), standbyHtml(snapshot));
-    return;
-  }
-  if (name === 'nosignal') {
-    // The header and the band above and below it are the frame's own, unchanged (§10.3).
-    patch(slot('body'), noSignalHtml(snapshot));
     return;
   }
   patch(slot('body'), SOLO_HTML);
@@ -179,10 +172,9 @@ function paintClock(snapshot) {
   clock.className = `clock ${display.clockTone}${display.penalty ? ` penalty-${display.penalty.state}` : ''}`;
   const digits = clock.querySelector('.digits');
   if (digits.textContent !== display.clock) digits.textContent = display.clock;
-  // The clock keeps its identity wherever the next screen holds the same time: PENDING's, moving
-  // into Resultado's MEJOR TIEMPO when it is the best (§7.2), and RUNNING's, shrinking into NO
-  // SIGNAL's TIEMPO CONGELADO (§10.5). Only one screen is ever rendered, so the two cannot collide.
-  digits.style.viewTransitionName = snapshot.phase === 'RUNNING' || clockIsBest(snapshot) ? 'time' : '';
+  // The clock keeps its identity when the next screen holds the same time: PENDING's, moving into
+  // Resultado's MEJOR TIEMPO when it is the best (§7.2).
+  digits.style.viewTransitionName = clockIsBest(snapshot) ? 'time' : '';
   if (display.penalty) clock.querySelector('.penalty').textContent = display.penalty.text;
   const status = solo.querySelector('.status');
   status.className = `status ${display.statusTone}`;

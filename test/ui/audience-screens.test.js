@@ -5,7 +5,7 @@ import { buildSnapshot } from '../../js/core/snapshot.js';
 import { packet } from '../../js/drivers/scenarios.js';
 import {
   FRAME_HTML, RESULTS_FRAME_HTML, attractFooter, attractHtml, changeBetween, countHtml, escapeHtml, familyOf,
-  mazeFrozen, noSignalHtml, resultsHtml, sceneOf, scrambleHtml, screenFor, signalMarkHtml, soloWhoHtml,
+  mazeFrozen, resultsHtml, sceneOf, scrambleHtml, screenFor, soloWhoHtml,
   standbyHtml,
 } from '../../js/ui/audience-screens.js';
 import { attempt, dnf, makeConfig } from '../helpers/fixtures.js';
@@ -181,11 +181,11 @@ test('escapeHtml escapes the five special characters', () => {
   assert.equal(escapeHtml(`<a href="x">'&'</a>`), '&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;');
 });
 
-// --- RESULTS and NO SIGNAL (UI spec §8.2, §10.1) ---
+// --- RESULTS (UI spec §8.2) ---
 
 // Only the fields these rules read. A real snapshot has many more.
 const view = (extra = {}) => ({
-  phase: 'ARMED', result: null, verdict: null, resultsIntro: false, matSilent: false, ...extra,
+  phase: 'ARMED', result: null, verdict: null, resultsIntro: false, ...extra,
 });
 
 test('RESULTS shows the bridge first and the board after', () => {
@@ -193,38 +193,8 @@ test('RESULTS shows the bridge first and the board after', () => {
   assert.equal(screenFor(view({ phase: 'RESULTS', resultsIntro: false })), 'results');
 });
 
-test('a silent mat takes over RUNNING', () => {
-  assert.equal(screenFor(view({ phase: 'RUNNING', matSilent: true })), 'nosignal');
-});
-
-test('a silent mat does not cover ARMED: the mat sends unevenly while it idles', () => {
-  assert.equal(screenFor(view({ phase: 'ARMED', matSilent: true })), 'armed');
-});
-
-test('a silent mat changes nothing anywhere else', () => {
-  assert.equal(screenFor(view({ phase: 'PENDING', matSilent: true })), 'pending');
-  assert.equal(screenFor(view({ phase: 'STANDBY', matSilent: true })), 'attract');
-  assert.equal(screenFor(view({ phase: 'STANDBY', matSilent: true, result: { teamId: 'intec' } })), 'resultado');
-  assert.equal(screenFor(view({ phase: 'SCRAMBLE', matSilent: true })), 'mezcla');
-  assert.equal(screenFor(view({ phase: 'RESULTS', matSilent: true })), 'results');
-});
-
-test('a verdict outlasts a silent mat, so PENDING is never covered', () => {
-  const verdict = { kind: 'OK', teamId: 'intec', attempt: 2, ms: 84020, reason: null };
-  assert.equal(screenFor(view({ phase: 'SCRAMBLE', matSilent: true, verdict })), 'pending');
-});
-
-test('the two new families', () => {
+test('RESULTS has a family of its own', () => {
   assert.equal(familyOf('results'), 'results');
-  assert.equal(familyOf('nosignal'), 'signal');
-});
-
-test('a change runs into and out of NO SIGNAL, but never inside it', () => {
-  const solo = { screen: 'running', featured: 'intec', rows: null };
-  const gone = { screen: 'nosignal', featured: 'intec', rows: null };
-  assert.equal(changeBetween(solo, gone), 'screen');
-  assert.equal(changeBetween(gone, solo), 'screen');
-  assert.equal(changeBetween(gone, { ...gone }), null);
 });
 
 test('a change runs from the bridge to the board', () => {
@@ -326,44 +296,4 @@ test('RESULTS has no band, which is what lets the band rise again on the way out
   assert.ok(!RESULTS_FRAME_HTML.includes('class="band"'));
   assert.ok(RESULTS_FRAME_HTML.includes('RESULTADOS FINALES'));
   assert.ok(RESULTS_FRAME_HTML.includes('view-transition-name:logo'));
-});
-
-// --- The takeover (UI spec §10.3, §10.4) ---
-
-const silent = (extra = {}) => ({
-  phase: 'RUNNING', displayMs: 84020, cutoffMs: 300000, attemptNo: 2, attemptsPerCompetitor: 3,
-  competitor: TEAMS[0], teams: TEAMS, verdict: null, ...extra,
-});
-
-test('over RUNNING the frozen time is shown, and carries the clock identity', () => {
-  const html = noSignalHtml(silent());
-  assert.ok(html.includes('CRONÓMETRO EN PAUSA'));
-  assert.ok(html.includes('no se ha perdido'));
-  assert.ok(html.includes('TIEMPO CONGELADO'));
-  assert.ok(html.includes('1:24.02'));
-  assert.ok(html.includes('view-transition-name:time'), 'the clock shrinks into it (§10.5)');
-});
-
-test('the who line is unchanged, so the plate and the name hold their places', () => {
-  const html = noSignalHtml(silent());
-  assert.ok(html.includes('view-transition-name:plate-intec'));
-  assert.ok(html.includes('view-transition-name:name-intec'));
-  assert.ok(html.includes('view-transition-name:attempt-n'));
-});
-
-test('a frozen time past the cutoff keeps its red, because it is still true', () => {
-  assert.ok(noSignalHtml(silent({ displayMs: 320000 })).includes('frozen over'));
-  assert.ok(!noSignalHtml(silent()).includes('frozen over'));
-});
-
-test('the header marker appears on NO SIGNAL and nowhere else', () => {
-  assert.ok(signalMarkHtml('nosignal').includes('SIN SEÑAL'));
-  assert.ok(signalMarkHtml('nosignal').includes('class="dot"'));
-  for (const screen of ['armed', 'running', 'pending', 'mezcla', 'resultado', 'results']) {
-    assert.equal(signalMarkHtml(screen), '', `${screen} has no marker`);
-  }
-});
-
-test('the shared frame carries an empty slot for the marker', () => {
-  assert.ok(FRAME_HTML.includes('data-slot="signal"'));
 });

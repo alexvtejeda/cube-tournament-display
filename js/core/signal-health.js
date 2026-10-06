@@ -13,15 +13,6 @@ export const THRESHOLDS = {
   measuringMs: 1000, // before this much has passed, PAQUETES has no window to measure
 };
 
-// Whether the mat is delivering, by the same rule SIGNAL CHECK's PAQUETES link uses: the *rate*
-// across the window, not a raw count. NO SIGNAL reads this (UI spec §10.2, §10.6), so the
-// projector and the laptop can never disagree about a dead mat, and one edit after the hardware
-// session retunes both. From a healthy ten a second it turns over at about 400 ms of silence.
-export function matDelivering(packetTimes, now) {
-  const recent = packetTimes.filter((t) => t > now - THRESHOLDS.windowMs).length;
-  return recent / (THRESHOLDS.windowMs / 1000) >= THRESHOLDS.packetsPerSecond;
-}
-
 // The decoder's `power` is a mean square, floored at 0.0001, so -40 dB is its silence.
 export function levelDb(power) {
   return Math.max(-40, Math.round(10 * Math.log10(power || 0)));

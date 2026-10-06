@@ -8,7 +8,7 @@ Built because a commercial tournament display costs around $100 and does rather 
 event needs.
 
 > **Status:** the engine runs, and the audience window is complete — ATTRACT, STANDBY, ARMED,
-> RUNNING, PENDING, RESULTS and NO SIGNAL, over the live maze, moving what they share from one
+> RUNNING, PENDING and RESULTS, over the live maze, moving what they share from one
 > screen to the next. The operator window opens on its own SETUP screen and has SIGNAL CHECK, but
 > still uses a plain-text debug view for the event itself until that screen is designed.
 > See [`docs/superpowers/specs/`](docs/superpowers/specs/) for the designs.

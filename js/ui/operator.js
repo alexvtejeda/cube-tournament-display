@@ -6,7 +6,6 @@ import { claimOperator, createPublisher, holdsOperator } from '../core/channel.j
 import { toCSV, toJSON } from '../core/export.js';
 import { commandForKey } from '../core/keymap.js';
 import { createState, reduce } from '../core/run-state.js';
-import { THRESHOLDS, matDelivering } from '../core/signal-health.js';
 import { RESULTS_INTRO_MS, STANDINGS_UPDATE_MS, VERDICT_MS, buildSnapshot } from '../core/snapshot.js';
 import { STORAGE_KEY, createStore } from '../core/store.js';
 import { createMockDriver } from '../drivers/mock.js';
@@ -41,13 +40,6 @@ function run(config) {
   // before then (spec §4.1, §4.12).
   let state = null;
   let requestedSeq = 0;
-  // When the mat's packets arrived, for NO SIGNAL (UI spec §10.6). SIGNAL CHECK keeps an array of
-  // its own: that one restarts with the check, this one runs for as long as the window is open.
-  const packetTimes = [];
-  let matSilent = false;
-  const trimPackets = (now) => {
-    while (packetTimes.length > 0 && packetTimes[0] < now - THRESHOLDS.windowMs) packetTimes.shift();
-  };
   // SETUP owns the window until one of its two actions is taken. The check may borrow it and hands
   // it back to wherever it came from — the same seam, for the same reason (spec §3.1, §4.1, §4.14).
   let screen = 'setup';
@@ -142,9 +134,7 @@ function run(config) {
     if (state.resultsAt !== null && state.resultsAt !== previous.resultsAt) {
       setTimeout(() => dispatch({ type: 'render' }), state.resultsAt + RESULTS_INTRO_MS - now);
     }
-    trimPackets(now);
-    matSilent = !matDelivering(packetTimes, now);
-    const snapshot = buildSnapshot(state, now, { matSilent });
+    const snapshot = buildSnapshot(state, now);
     publisher.publish(snapshot);
     view.render(state, snapshot, now);
   }
@@ -159,12 +149,6 @@ function run(config) {
   // The check is a bench, not a view (operator spec §3.1): while it is open the mat reaches
   // neither the reducer nor, therefore, the audience window.
   driver.onState((matState) => {
-    const now = Date.now();
-    // Recorded before the seam, so the window's idea of a live mat survives the check being open.
-    // The check is a bench and swallows the packets; whether the mat is alive is not the bench's
-    // business (UI spec §10.6).
-    if (matState.fresh && matState.on) packetTimes.push(now);
-    trimPackets(now);
     if (screen === 'check') {
       signalCheck.onMat(matState);
       return;
@@ -174,18 +158,8 @@ function run(config) {
       setup.render();
       return;
     }
-    dispatch({ type: 'mat', state: matState, at: now });
+    dispatch({ type: 'mat', state: matState, at: Date.now() });
   });
-
-  // A mat that has gone quiet sends nothing, so nothing arrives to trigger a render. A ticker
-  // notices, and re-publishes once, at the moment the answer changes (UI spec §10.6). There is no
-  // event to publish until SETUP hands the window over, so the ticker waits for one (spec §4.1).
-  setInterval(() => {
-    if (state === null) return;
-    const now = Date.now();
-    trimPackets(now);
-    if (!matDelivering(packetTimes, now) !== matSilent) dispatch({ type: 'render' });
-  }, 200);
 
   // The only entry in §3.1's table with no phase to restore: from SETUP the event does not exist
   // yet, so S borrows the window and Esc gives it straight back (spec §4.14).
