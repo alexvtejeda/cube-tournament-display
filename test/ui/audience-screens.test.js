@@ -193,9 +193,12 @@ test('RESULTS shows the bridge first and the board after', () => {
   assert.equal(screenFor(view({ phase: 'RESULTS', resultsIntro: false })), 'results');
 });
 
-test('a silent mat takes over ARMED and RUNNING', () => {
-  assert.equal(screenFor(view({ phase: 'ARMED', matSilent: true })), 'nosignal');
+test('a silent mat takes over RUNNING', () => {
   assert.equal(screenFor(view({ phase: 'RUNNING', matSilent: true })), 'nosignal');
+});
+
+test('a silent mat does not cover ARMED: the mat sends unevenly while it idles', () => {
+  assert.equal(screenFor(view({ phase: 'ARMED', matSilent: true })), 'armed');
 });
 
 test('a silent mat changes nothing anywhere else', () => {
@@ -339,14 +342,6 @@ test('over RUNNING the frozen time is shown, and carries the clock identity', ()
   assert.ok(html.includes('TIEMPO CONGELADO'));
   assert.ok(html.includes('1:24.02'));
   assert.ok(html.includes('view-transition-name:time'), 'the clock shrinks into it (§10.5)');
-});
-
-test('over ARMED there is nothing to freeze, and nothing carries', () => {
-  const html = noSignalHtml(silent({ phase: 'ARMED', displayMs: null }));
-  assert.ok(html.includes('CRONÓMETRO EN PAUSA'));
-  assert.ok(html.includes('aún no ha comenzado'));
-  assert.ok(!html.includes('TIEMPO CONGELADO'));
-  assert.ok(!html.includes('view-transition-name:time'));
 });
 
 test('the who line is unchanged, so the plate and the name hold their places', () => {

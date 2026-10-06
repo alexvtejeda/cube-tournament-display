@@ -619,16 +619,9 @@ await save('nosignal-over');
 check('NO SIGNAL: a frozen time past the cutoff keeps its red', (await colorOf('.frozen')) === RED
   && (await textOf('.frozen')) === '5:20.00');
 
-await show(gone(inspecting, 8000), 1000);
-await save('nosignal-armed');
-check('NO SIGNAL over ARMED: nothing to freeze, and nothing said about a time',
-  (await js("document.querySelector('.frozen')")) === null && !(await js("document.querySelector('.solo').textContent")).includes('TIEMPO CONGELADO'));
-check('NO SIGNAL over ARMED: the sentence says the attempt has not begun',
-  (await js("document.querySelector('.nosignal .sentence').textContent")).includes('aún no ha comenzado'));
-
-// The four exempt screens are byte for byte what they are with a live mat (§10.1, §10.1.1).
+// The exempt screens are byte for byte what they are with a live mat (§10.1, §10.1.1).
 for (const [name, state, now] of [['ATTRACT', createState(config), 0], ['Mezcla', mezcla, 0],
-  ['Resultado', resultado, 0], ['PENDING', review, 0]]) {
+  ['Resultado', resultado, 0], ['PENDING', review, 0], ['ARMED', armed, 0], ['inspection', inspecting, 8000]]) {
   await show(at(state, now), 1000);
   await show(at(state, now), 400); // settle: the first draw of ATTRACT still carries the leaving name
   const live = await js("document.getElementById('screen').innerHTML");
@@ -637,10 +630,7 @@ for (const [name, state, now] of [['ATTRACT', createState(config), 0], ['Mezcla'
   check(`a silent mat changes nothing on ${name}`, live === quiet && (await js("document.querySelector('.hdr .sig')?.textContent ?? ''")) === '');
 }
 
-// The two changes into and out of the takeover (§2.7, §10.5).
-await show(at(armed, 0), 1000);
-await moves('ARMED → NO SIGNAL: the plate, the divider, INTENTO · n · DE 3, the name and the band hold', gone(inspecting, 8000), WHO);
-await moves('NO SIGNAL → ARMED: the same, in reverse', at(armed, 0), WHO);
+// The change into and out of the takeover (§2.7, §10.5).
 await show(at(stillRunning(84020), 0), 1000);
 await moves('RUNNING → NO SIGNAL: the same, and the clock shrinks into TIEMPO CONGELADO', gone(stillRunning(84020)), [...WHO, 'time']);
 await moves('NO SIGNAL → RUNNING: the same, in reverse', at(stillRunning(84020), 0), [...WHO, 'time']);

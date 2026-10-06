@@ -15,8 +15,10 @@ export function screenFor({ phase, result, verdict, resultsIntro, matSilent }) {
   if (phase === 'STANDBY') return result === null ? 'attract' : 'resultado';
   if (phase === 'SCRAMBLE') return 'mezcla';
   // Only here: the mat's silence is news exactly where the room is waiting on the mat (§10.1).
-  if (matSilent) return 'nosignal';
-  return phase === 'ARMED' ? 'armed' : 'running';
+  // Not in ARMED, the INSPECCIÓN screen: on real hardware the mat's packets come unevenly while it
+  // idles, so the check flickered SIN SEÑAL over it. The clock running is where it stays honest.
+  if (phase === 'ARMED') return 'armed';
+  return matSilent ? 'nosignal' : 'running';
 }
 
 // The layout families of UI spec §2.7. A screen change moves shared elements when the family
@@ -232,31 +234,27 @@ const SIN_SENAL = {
   mark: 'SIN SEÑAL',
   headline: 'CRONÓMETRO EN PAUSA',
   frozen: 'TIEMPO CONGELADO',
-  running: 'El tiempo <b>no se ha perdido</b>. Continúa al volver la señal.',
-  armed: 'El intento <b>aún no ha comenzado</b>. Continúa al volver la señal.',
+  sentence: 'El tiempo <b>no se ha perdido</b>. Continúa al volver la señal.',
 };
 
 // The header's centre, which is empty on every other screen (§4.2, §10.3). The word is --violet and
 // only the dot is --red, so red keeps its single text role (§2.1).
 export const signalMarkHtml = (screen) => (screen === 'nosignal' ? `<i class="dot"></i>${SIN_SENAL.mark}` : '');
 
-// NO SIGNAL (§10.3): ARMED's body with the clock block replaced. The who line is untouched, so the
+// NO SIGNAL (§10.3): RUNNING's body with the clock block replaced. The who line is untouched, so the
 // plate, the divider, INTENTO and the name hold their places across the change, and the header and
 // the band are the frame's own (§10.5).
 export function noSignalHtml(snapshot) {
-  const running = snapshot.phase === 'RUNNING';
   // The frozen time keeps RUNNING's red past the cutoff: it is still true (§7.1, §10.3).
-  const over = running && snapshot.displayMs > snapshot.cutoffMs ? ' over' : '';
-  const frozen = running
-    ? `<div class="label">${SIN_SENAL.frozen}</div>`
-      + `<div class="frozen${over}"><span class="piece"${vt('time')}>${formatMs(snapshot.displayMs)}</span></div>`
-    : '';
+  const over = snapshot.displayMs > snapshot.cutoffMs ? ' over' : '';
+  const frozen = `<div class="label">${SIN_SENAL.frozen}</div>`
+    + `<div class="frozen${over}"><span class="piece"${vt('time')}>${formatMs(snapshot.displayMs)}</span></div>`;
   // `solo` as well as `nosignal`: the who line is the same element in the same place, so it must
   // also be the same CSS. Only the clock block below it differs.
   return `<div class="solo nosignal">
   <div class="who">${soloWhoHtml(snapshot)}</div>
   <div class="headline">${SIN_SENAL.headline}</div>
-  <div class="sentence">${running ? SIN_SENAL.running : SIN_SENAL.armed}</div>
+  <div class="sentence">${SIN_SENAL.sentence}</div>
   ${frozen}
 </div>`;
 }
